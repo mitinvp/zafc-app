@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ЗАФК — швидкий доступ</title>
+<meta name="theme-color" content="#16233F">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#16233F;
+    --navy-deep:#0F1A30;
+    --sky:#3E7CB1;
+    --amber:#E2A63B;
+    --bg:#F3F5F8;
+    --card:#FFFFFF;
+    --text:#20293B;
+    --muted:#6B7686;
+    --line:#E4E8EE;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family:'Inter',system-ui,sans-serif; -webkit-font-smoothing:antialiased;}
+  body{padding-bottom:40px;}
+
+  header{
+    background:linear-gradient(135deg, var(--navy) 0%, var(--navy-deep) 100%);
+    color:#fff;
+    padding:22px 20px 0 20px;
+    position:sticky; top:0; z-index:10;
+  }
+  .brand{display:flex; align-items:center; gap:12px; margin-bottom:18px;}
+  .brand img{width:38px; height:38px; border-radius:9px;}
+  .brand-text h1{font-family:'Space Grotesk',sans-serif; font-size:17px; font-weight:600; margin:0; line-height:1.25;}
+  .brand-text p{margin:2px 0 0; font-size:12.5px; color:#9FB2CC;}
+
+  .tabs{display:flex; gap:6px; background:rgba(255,255,255,0.08); border-radius:12px; padding:4px; margin-bottom:0; transform:translateY(14px);}
+  .tab{flex:1; text-align:center; padding:11px 0; border-radius:9px; font-family:'Space Grotesk',sans-serif;
+    font-size:14px; font-weight:600; color:#C7D3E5; cursor:pointer; border:none; background:none; transition:background .18s, color .18s;}
+  .tab.active{background:var(--amber); color:var(--navy-deep);}
+
+  main{padding:32px 16px 8px; max-width:520px; margin:0 auto;}
+
+  .group{margin-bottom:26px;}
+  .group h2{font-family:'Space Grotesk',sans-serif; font-size:14px; font-weight:600; color:var(--muted); margin:0 0 10px 4px;}
+
+  .list{background:var(--card); border-radius:16px; overflow:hidden; box-shadow:0 1px 2px rgba(20,30,50,0.05);}
+  a.item{
+    display:flex; align-items:center; gap:13px;
+    padding:14px 14px; text-decoration:none; color:var(--text);
+    border-bottom:1px solid var(--line);
+  }
+  .list a.item:last-child{border-bottom:none;}
+  a.item:active{background:#F0F3F7;}
+  .ico{
+    width:38px; height:38px; min-width:38px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    background:#EAF1F8; color:var(--sky); font-size:18px;
+  }
+  .item-text{flex:1; min-width:0;}
+  .item-text .t{font-size:15px; font-weight:500; line-height:1.3;}
+  .item-text .s{font-size:12.5px; color:var(--muted); margin-top:1px;}
+  .chev{color:#C4CCD7; font-size:18px;}
+
+  footer{max-width:520px; margin:18px auto 0; padding:0 20px; font-size:12px; color:var(--muted); text-align:center;}
+  footer a{color:var(--sky); text-decoration:none;}
+
+  .about{
+    max-width:520px; margin:0 auto 24px; padding:16px 16px;
+    background:var(--card); border-radius:16px; box-shadow:0 1px 2px rgba(20,30,50,0.05);
+  }
+  .about h2{font-family:'Space Grotesk',sans-serif; font-size:14px; font-weight:600; color:var(--muted); margin:0 0 8px;}
+  .about p{margin:0 0 4px; font-size:13.5px; line-height:1.5; color:var(--text);}
+  .about .contact-row{display:flex; gap:8px; font-size:13px; color:var(--muted); margin-top:2px;}
+  .about .contact-row a{color:var(--sky); text-decoration:none;}
+
+  [data-view="students"] .teacher-only{display:none;}
+  [data-view="teachers"] .student-only{display:none;}
+</style>
+</head>
+<body data-view="students">
+
+<header>
+  <div class="brand">
+    <img src="icons/icon-192.png" alt="">
+    <div class="brand-text">
+      <h1>ЗАФК ім. О. Г. Івченка</h1>
+      <p>Розділи сайту для студентів і викладачів</p>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" id="tab-students" onclick="setView('students')">Студентам</button>
+    <button class="tab" id="tab-teachers" onclick="setView('teachers')">Викладачам</button>
+  </div>
+</header>
+
+<main>
+
+  <div class="about">
+    <h2>Про коледж</h2>
+    <p>Запорізький авіаційний фаховий коледж ім. О. Г. Івченка — заклад фахової передвищої освіти I–II рівнів акредитації, заснований у 1930-х роках при авіадвигунобудівному заводі. Готує фахівців за напрямами авіаційної, комп'ютерної та металургійної галузей.</p>
+    <p class="contact-row">📍 м. Запоріжжя, вул. Іванова, 97</p>
+    <p class="contact-row">☎️ <a href="tel:+380617205526">(061) 720-55-26</a></p>
+    <p class="contact-row">✉️ <a href="mailto:zac.office@meta.ua">zac.office@meta.ua</a></p>
+  </div>
+
+  <!-- ==================== STUDENTS ==================== -->
+  <section class="student-only">
+    <div class="group">
+      <h2>Розклад</h2>
+      <div class="list">
+        <a class="item" href="schedule.html?view=student">
+          <div class="ico">🗓️</div>
+          <div class="item-text"><div class="t">Розклад занять</div><div class="s">За вашою групою</div></div>
+          <div class="chev">›</div>
+        </a>
+        <a class="item" href="http://zac.org.ua/schedule-changes" target="_blank" rel="noopener">
+          <div class="ico">🔄</div>
+          <div class="item-text"><div class="t">Зміни у розкладі</div></div>
+          <div class="chev">›</div>
+        </a>
+        <a class="item" href="http://zac.org.ua/bell-schedule" target="_blank" rel="noopener">
+          <div class="ico">🔔</div>
+          <div class="item-text"><div class="t">Розклад дзвінків</div></div>
+          <div class="chev">›</div>
+        </a>
+        <a class="item" href="http://zac.org.ua/exam-schedule" target="_blank" rel="noopener">
+          <div class="ico">📝</div>
+          <div class="item-text"><div class="t">Розклад екзаменів</div></div>
+          <div class="chev">›</div>
+        </a>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>Навчання</h2>
+      <div class="list">
+        <a class="item" href="http://zac.org.ua/student-help" target="_blank" rel="noopener">
+          <div class="ico">🎓</div>
+          <div class="item-text"><div class="t">На допомогу студенту</div></div>
+          <div class="chev">›</div>
+        </a>
+        <a class="item" href="http://zac.org.ua/student-ratings" target="_blank" rel="noopener">
+          <div class="ico">📊</div>
+          <div class="item-text"><div class="t">Рейтинги студентів</div></div>
+          <div class="chev">›</div>
+        </a>
+        <a class="item" href="http://zac.org.ua/academic-debt-schedule" target="_blank" rel="noopener">
+          <div class="ico">⚠️</div>
+          <div class="item-text"><div class="t">Ліквідація академзаборгованості</div></div>
+          <div class="chev">›</div>
+        </a>
+        <a class="item" href="http://zac.org.ua/monitoring-the-quality-of-education" target="_blank" rel="noopener">
+          <div class="ico">🏛️</div>
+          <div class="item-text"><div class="t">Відділення коледжу</div><div class="s">спеціальності та циклові комісії</div></div>
+          <div class="chev">›</div>
+        </a>
+        <a class="item" href="http://zac.org.ua/prospective-student" target="_blank" rel="noopener">
+          <div class="ico">📥</div>
+          <div class="item-text"><div class="t">Абітурієнту</div></div>
+          <div class="chev">›</div>
+        </a>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>Побут і документи</h2>
+      <div class="list">
+        <a class="item" href="http://zac.org.ua/scholarship" target="_blank" rel="noopener">
+          <div class="ico">💳</div>
+          <div class="item-text"><div class="t">Стипендії</div></div>
+          <div class="chev">›</div>
+        </a>
+        <a class="item" href="http://zac.org.ua/dormitory" target="_blank" rel="noopener">
+          <div class="ico">🏠</div>
+          <div class="item-text"><div class="t">Гуртожиток</div></div>
+          <div class="chev">›</div>
+        </a>
+        <a class="item" href="http://zac.org.ua/student-council" target="_blank" rel="noopener">
+          <div class="ico">🗣️</div>
+          <div class="item-text"><div class="t">Студентська рада</div></div>
+          <div class="chev">›</div>
+        </a>
+        <a class="item" href="http://zac.org.ua/conduct-rules" target="_blank" rel="noopener">
+          <div class="ico">📋</div>
+          <div class="item-text"><div class="t">Правила поведінки здобувачів</div></div>
+          <div class="chev">›</div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== TEACHERS ==================== -->
+  <section class="teacher-only">
+    <div class="group">
+      <h2>Розклад і графіки</h2>
+      <div class="list">
+        <a class="item" href="schedule.html?view=teacher">
+          <div class="ico">🗓️</div>
+          <div class="item-text"><div class="t">Розклад занять</div><div class="s">За вашим прізвищем</div></div>
+          <div class="chev">›</div>
+        </a>
+        <a class="item" href="http://zac.org.ua/consultation-schedule" target="_blank" rel="noopener">
+          <div class="ico">🗨️</div>
+          <div class="item-text"><div class="t">Графік консультацій</div></div>
+          <div class="chev">›</div>
+        </a>
+        <a class="item" href="http://zac.org.ua/thesis-defense-schedule" target="_blank" rel="noopener">
+          <div class="ico">🎓</div>
+          <div class="item-text"><div class="t">Графік захисту кваліфікаційних робіт</div></div>
+          <div class="chev">›</div>
+        </a>
+        <a class="item" href="http://zac.org.ua/exam-schedule" target="_blank" rel="noopener">
+          <div class="ico">📝</div>
+          <div class="item-text"><div class="t">Розклад екзаменів</div></div>
+          <div class="chev">›</div>
+        </a>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>Навчально-методична робота</h2>
+      <div class="list">
+        <a class="item" href="http://zac.org.ua/academic-integrity" target="_blank" rel="noopener">
+          <div class="ico">✅</div>
+          <div class="item-text"><div class="t">Академічна доброчесність</div></div>
+          <div class="chev">›</div>
+        </a>
+        <a class="item" href="http://zac.org.ua/monitoring-the-quality-of-education" target="_blank" rel="noopener">
+          <div class="ico">📈</div>
+          <div class="item-text"><div class="t">Моніторинг якості освіти / НМКД</div></div>
+          <div class="chev">›</div>
+        </a>
+        <a class="item" href="http://zac.org.ua/academic-debt-schedule" target="_blank" rel="noopener">
+          <div class="ico">⚠️</div>
+          <div class="item-text"><div class="t">Ліквідація академзаборгованості</div></div>
+          <div class="chev">›</div>
+        </a>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>Загальне</h2>
+      <div class="list">
+        <a class="item" href="http://zac.org.ua/contacts" target="_blank" rel="noopener">
+          <div class="ico">☎️</div>
+          <div class="item-text"><div class="t">Контакти коледжу</div></div>
+          <div class="chev">›</div>
+        </a>
+        <a class="item" href="http://zac.org.ua/" target="_blank" rel="noopener">
+          <div class="ico">🌐</div>
+          <div class="item-text"><div class="t">Головна сторінка сайту</div></div>
+          <div class="chev">›</div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Неофіційний застосунок швидкого доступу до <a href="http://zac.org.ua" target="_blank" rel="noopener">zac.org.ua</a>
+  </footer>
+
+</main>
+
+<script>
+function setView(view){
+  document.body.setAttribute('data-view', view);
+  document.getElementById('tab-students').classList.toggle('active', view === 'students');
+  document.getElementById('tab-teachers').classList.toggle('active', view === 'teachers');
+  localStorage.setItem('zac-view', view);
+}
+(function(){
+  var saved = localStorage.getItem('zac-view');
+  if(saved) setView(saved);
+})();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  });
+}
+</script>
+
+</body>
+</html>
