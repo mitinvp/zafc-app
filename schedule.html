@@ -96,15 +96,15 @@
   <div id="results"></div>
 
   <p class="note">
-    Дані підтягуються напряму з <a href="https://docs.google.com/spreadsheets/d/1YJEnyBTr0rN-f9FFHOqY8WYiO8qBhsdw/edit?gid=775783602" target="_blank" rel="noopener">оригінальної таблиці розкладу</a>.
+    Дані підтягуються напряму з <a href="https://docs.google.com/spreadsheets/d/1Zl0ZLRb8_XtR4yr1GeeBW2_FP1Z2WXnL/edit?gid=596387843" target="_blank" rel="noopener">оригінальної таблиці розкладу</a>.
     Текст показано так, як він записаний у клітинці — якщо є поділ на підгрупи, обидва варіанти йдуть одним блоком.
   </p>
 
 </main>
 
 <script>
-const SHEET_ID = '1YJEnyBTr0rN-f9FFHOqY8WYiO8qBhsdw';
-const GID = '775783602';
+const SHEET_ID = '1Zl0ZLRb8_XtR4yr1GeeBW2_FP1Z2WXnL';
+const GID = '596387843';
 const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID}`;
 
 const DAYS = ['ПОНЕДІЛОК','ВІВТОРОК','СЕРЕДА','ЧЕТВЕР','ПЯТНИЦЯ',"П'ЯТНИЦЯ",'СУБОТА'];
@@ -125,7 +125,16 @@ function setMode(m){
 }
 
 function parseSchedule(rows){
-  const groupRowIdx = rows.findIndex(r => normalize(r[0]) === 'ГРУПИ');
+  const firstDayRowIdx = rows.findIndex(r => DAYS.includes(normalize(r[0])));
+  let groupRowIdx = rows.findIndex(r => normalize(r[0]) === 'ГРУПИ');
+  if(groupRowIdx < 0 && firstDayRowIdx > 0){
+    // Fallback: the header row is the last row before the first day
+    // that has many non-empty cells (group names), regardless of label text.
+    for(let r = firstDayRowIdx - 1; r >= 0; r--){
+      const nonEmpty = rows[r].slice(1).filter(c => (c||'').trim()).length;
+      if(nonEmpty >= 5){ groupRowIdx = r; break; }
+    }
+  }
   const groups = [];
   if(groupRowIdx >= 0){
     const headerRow = rows[groupRowIdx];

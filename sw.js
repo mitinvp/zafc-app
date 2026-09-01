@@ -1,5 +1,5 @@
-const CACHE = 'zac-app-v2';
-const ASSETS = ['./', './index.html', './schedule.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
+const CACHE = 'zac-app-v3';
+const ASSETS = ['./', './index.html', './schedule.html', './bells.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
