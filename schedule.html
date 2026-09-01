@@ -11,7 +11,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
   :root{
     --navy:#16233F; --navy-deep:#0F1A30; --sky:#3E7CB1; --amber:#E2A63B;
@@ -57,8 +56,11 @@
     min-width:30px; height:30px; border-radius:8px; background:#EAF1F8; color:var(--sky);
     display:flex; align-items:center; justify-content:center; font-weight:600; font-size:13px; flex-shrink:0;
   }
-  .row-text{font-size:14.5px; line-height:1.45; white-space:pre-line;}
+  .row-text{font-size:14.5px; line-height:1.45;}
   .row-text .group-tag{display:block; font-size:12px; color:var(--sky); font-weight:600; margin-bottom:2px;}
+  .row-text .subject{font-weight:500;}
+  .row-text .teacher{color:var(--muted); font-size:13px; margin-top:1px;}
+  .row-text .extra{color:var(--muted); font-size:12.5px; margin-top:2px; font-style:italic;}
 
   .note{
     font-size:12px; color:var(--muted); text-align:center; margin:18px auto 0;
@@ -96,22 +98,15 @@
   <div id="results"></div>
 
   <p class="note">
-    Дані підтягуються напряму з <a href="https://docs.google.com/spreadsheets/d/1Zl0ZLRb8_XtR4yr1GeeBW2_FP1Z2WXnL/edit?gid=596387843" target="_blank" rel="noopener">оригінальної таблиці розкладу</a>.
-    Текст показано так, як він записаний у клітинці — якщо є поділ на підгрупи, обидва варіанти йдуть одним блоком.
+    Дані підтягуються напряму з <a href="https://docs.google.com/spreadsheets/d/1Zl0ZLRb8_XtR4yr1GeeBW2_FP1Z2WXnL/edit?gid=596387843" target="_blank" rel="noopener">оригінальної таблиці розкладу</a> через сервіс, який коректно розпізнає предмет і викладача в кожній комірці.
   </p>
 
 </main>
 
 <script>
-const SHEET_ID = '1Zl0ZLRb8_XtR4yr1GeeBW2_FP1Z2WXnL';
-const GID = '596387843';
-const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID}`;
+const API_URL = 'https://script.google.com/macros/s/AKfycbySrl-VB-L_2yE_Q0EOj317yJGDIV2AD49tVa1WE_lO5KSGWGiqMYADmPRKkG0Ks72s/exec';
 
-const DAYS = ['ПОНЕДІЛОК','ВІВТОРОК','СЕРЕДА','ЧЕТВЕР','ПЯТНИЦЯ',"П'ЯТНИЦЯ",'СУБОТА'];
-
-function normalize(s){ return (s||'').replace(/['’ʼ]/g,'').trim().toUpperCase(); }
-
-let parsed = null;
+let scheduleData = null; // {groups: [...], schedule: [{day,pair,group,subject,teacher,extra}]}
 let mode = null;
 
 function setMode(m){
@@ -124,100 +119,24 @@ function setMode(m){
   localStorage.setItem('zac-schedule-mode', m);
 }
 
-function parseSchedule(rows){
-  const firstDayRowIdx = rows.findIndex(r => DAYS.includes(normalize(r[0])));
-  let groupRowIdx = rows.findIndex(r => normalize(r[0]) === 'ГРУПИ');
-  if(groupRowIdx < 0 && firstDayRowIdx > 0){
-    // Fallback: the header row is the last row before the first day
-    // that has many non-empty cells (group names), regardless of label text.
-    for(let r = firstDayRowIdx - 1; r >= 0; r--){
-      const nonEmpty = rows[r].slice(1).filter(c => (c||'').trim()).length;
-      if(nonEmpty >= 5){ groupRowIdx = r; break; }
-    }
-  }
-  const groups = [];
-  if(groupRowIdx >= 0){
-    const headerRow = rows[groupRowIdx];
-    for(let c=1;c<headerRow.length;c++){
-      const v = (headerRow[c]||'').trim();
-      if(v) groups.push({name:v, col:c});
-    }
-  }
-  const blocks = [];
-  let curDay = null, curPairStart = null, curPairNum = null;
-  function closeBlock(endRow){
-    if(curDay && curPairNum !== null && endRow > curPairStart){
-      blocks.push({day:curDay, pair:curPairNum, start:curPairStart, end:endRow});
-    }
-  }
-  const startRow = groupRowIdx >= 0 ? groupRowIdx + 1 : 0;
-  for(let r = startRow; r < rows.length; r++){
-    const row = rows[r];
-    const c0 = normalize(row[0]);
-    if(DAYS.includes(c0)){
-      closeBlock(r);
-      curDay = row[0].trim();
-      curPairNum = null; curPairStart = null;
-      continue;
-    }
-    const c1 = (row[1]||'').trim();
-    if(/^[0-6]$/.test(c1)){
-      closeBlock(r);
-      curPairNum = c1;
-      curPairStart = r + 1;
-    }
-  }
-  closeBlock(rows.length);
-  return {groups, blocks, rows};
-}
-
 function getGroupSchedule(groupName){
-  const g = parsed.groups.find(x => x.name === groupName);
-  if(!g) return [];
-  const out = [];
-  for(const b of parsed.blocks){
-    const lines = [];
-    for(let r=b.start; r<b.end; r++){
-      const v = (parsed.rows[r][g.col]||'').trim();
-      if(v) lines.push(v);
-    }
-    if(lines.length) out.push({day:b.day, pair:b.pair, text: lines.join('\n')});
-  }
-  return out;
+  return scheduleData.schedule
+    .filter(it => it.group === groupName)
+    .map(it => ({day: it.day, pair: it.pair, subject: it.subject, teacher: it.teacher, extra: it.extra}));
 }
 
 function searchTeacher(query){
   const q = query.trim().toLowerCase();
   if(!q) return [];
-  const out = [];
-  for(const b of parsed.blocks){
-    for(const g of parsed.groups){
-      const lines = [];
-      let matched = false;
-      for(let r=b.start; r<b.end; r++){
-        const v = (parsed.rows[r][g.col]||'').trim();
-        if(v){ lines.push(v); if(v.toLowerCase().includes(q)) matched = true; }
-      }
-      if(matched && lines.length) out.push({day:b.day, pair:b.pair, group:g.name, text: lines.join('\n')});
-    }
-  }
-  return out;
+  return scheduleData.schedule
+    .filter(it => (it.teacher||'').toLowerCase().includes(q) || (it.extra||[]).some(x => x.toLowerCase().includes(q)))
+    .map(it => ({day: it.day, pair: it.pair, group: it.group, subject: it.subject, teacher: it.teacher, extra: it.extra}));
 }
 
 function collectTeacherNames(){
-  // Heuristic: last non-empty line of a block is usually the teacher surname.
   const names = new Set();
-  for(const b of parsed.blocks){
-    for(const g of parsed.groups){
-      let last = '';
-      for(let r=b.start; r<b.end; r++){
-        const v = (parsed.rows[r][g.col]||'').trim();
-        if(v) last = v;
-      }
-      if(last && /^[А-ЯІЇЄҐ][а-яіїєґ'’]+(\s[А-ЯІЇЄҐ]\.?){0,2}$/.test(last)){
-        names.add(last);
-      }
-    }
+  for(const it of scheduleData.schedule){
+    if(it.teacher) names.add(it.teacher);
   }
   return Array.from(names).sort();
 }
@@ -235,9 +154,11 @@ function renderList(items, opts={}){
   let html = '';
   for(const day of Object.keys(byDay)){
     html += `<div class="day-group"><h2>${day}</h2><div class="list">`;
-    for(const it of byDay[day].sort((a,b)=>a.pair-b.pair)){
-      const groupTag = it.group ? `<span class="group-tag">${it.group}</span>` : '';
-      html += `<div class="row"><div class="pair-num">${it.pair}</div><div class="row-text">${groupTag}${escapeHtml(it.text)}</div></div>`;
+    for(const it of byDay[day].sort((a,b)=>Number(a.pair)-Number(b.pair))){
+      const groupTag = it.group ? `<span class="group-tag">${escapeHtml(it.group)}</span>` : '';
+      const teacherLine = it.teacher ? `<div class="teacher">${escapeHtml(it.teacher)}</div>` : '';
+      const extraLine = (it.extra && it.extra.length) ? `<div class="extra">${it.extra.map(escapeHtml).join(' · ')}</div>` : '';
+      html += `<div class="row"><div class="pair-num">${escapeHtml(it.pair)}</div><div class="row-text">${groupTag}<div class="subject">${escapeHtml(it.subject||'—')}</div>${teacherLine}${extraLine}</div></div>`;
     }
     html += `</div></div>`;
   }
@@ -245,31 +166,30 @@ function renderList(items, opts={}){
 }
 
 function escapeHtml(s){
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 async function loadSchedule(){
   const results = document.getElementById('results');
   results.innerHTML = `<p class="status">Завантажую розклад…</p>`;
   try{
-    const res = await fetch(CSV_URL);
+    const res = await fetch(API_URL);
     if(!res.ok) throw new Error('http ' + res.status);
-    const csvText = await res.text();
-    const rows = Papa.parse(csvText, {skipEmptyLines:false}).data;
-    parsed = parseSchedule(rows);
-    if(!parsed.groups.length) throw new Error('groups not found');
+    scheduleData = await res.json();
+    if(scheduleData.error) throw new Error(scheduleData.error);
+    if(!scheduleData.groups || !scheduleData.groups.length) throw new Error('groups not found');
 
     const groupSelect = document.getElementById('groupSelect');
-    groupSelect.innerHTML = parsed.groups.map(g => `<option value="${g.name}">${g.name}</option>`).join('');
+    groupSelect.innerHTML = scheduleData.groups.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
     const savedGroup = localStorage.getItem('zac-schedule-group');
-    if(savedGroup && parsed.groups.some(g => g.name === savedGroup)) groupSelect.value = savedGroup;
+    if(savedGroup && scheduleData.groups.includes(savedGroup)) groupSelect.value = savedGroup;
     groupSelect.addEventListener('change', () => {
       localStorage.setItem('zac-schedule-group', groupSelect.value);
       renderList(getGroupSchedule(groupSelect.value), {emptyText:'У цієї групи немає занять у знайденому розкладі.'});
     });
 
     const teacherList = document.getElementById('teacherList');
-    teacherList.innerHTML = collectTeacherNames().map(n => `<option value="${n}">`).join('');
+    teacherList.innerHTML = collectTeacherNames().map(n => `<option value="${escapeHtml(n)}">`).join('');
     const teacherInput = document.getElementById('teacherInput');
     let debounce;
     teacherInput.addEventListener('input', () => {
@@ -287,7 +207,7 @@ async function loadSchedule(){
       if(savedTeacher){ teacherInput.value = savedTeacher; renderList(searchTeacher(savedTeacher)); }
     }
   }catch(err){
-    results.innerHTML = `<p class="status error">Не вдалося завантажити розклад. Перевірте інтернет-з'єднання або доступ до таблиці (має бути "Доступ для всіх, хто має посилання").</p>`;
+    results.innerHTML = `<p class="status error">Не вдалося завантажити розклад. Перевірте інтернет-з'єднання.</p>`;
   }
 }
 
