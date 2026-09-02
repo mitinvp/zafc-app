@@ -14,7 +14,12 @@
 <style>
   :root{
     --navy:#16233F; --navy-deep:#0F1A30; --sky:#3E7CB1; --amber:#E2A63B;
-    --bg:#F3F5F8; --card:#FFFFFF; --text:#20293B; --muted:#6B7686; --line:#E4E8EE;
+    --bg:#F3F5F8; --card:#FFFFFF; --text:#20293B; --muted:#6B7686; --line:#E4E8EE; --ico-bg:#EAF1F8;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0E141F; --card:#1A2233; --text:#E8ECF4; --muted:#8B96AC; --line:#2A3346; --ico-bg:#22304A;
+    }
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; padding:0; background:var(--bg); color:var(--text);
@@ -35,7 +40,7 @@
   .row{display:flex; align-items:center; gap:14px; padding:14px 16px; border-bottom:1px solid var(--line);}
   .list .row:last-child{border-bottom:none;}
   .pair-badge{
-    min-width:40px; height:40px; border-radius:10px; background:#EAF1F8; color:var(--sky);
+    min-width:40px; height:40px; border-radius:10px; background:var(--ico-bg); color:var(--sky);
     display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex-shrink:0;
     font-family:'Space Grotesk',sans-serif;
   }

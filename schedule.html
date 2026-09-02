@@ -15,6 +15,13 @@
   :root{
     --navy:#16233F; --navy-deep:#0F1A30; --sky:#3E7CB1; --amber:#E2A63B;
     --bg:#F3F5F8; --card:#FFFFFF; --text:#20293B; --muted:#6B7686; --line:#E4E8EE;
+    --input-bg:#FAFBFC; --ico-bg:#EAF1F8;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0E141F; --card:#1A2233; --text:#E8ECF4; --muted:#8B96AC; --line:#2A3346;
+      --input-bg:#212B40; --ico-bg:#22304A;
+    }
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; padding:0; background:var(--bg); color:var(--text);
@@ -31,7 +38,8 @@
 
   .tabs{display:flex; gap:6px; background:rgba(255,255,255,0.08); border-radius:12px; padding:4px;}
   .tab{flex:1; text-align:center; padding:11px 0; border-radius:9px; font-family:'Space Grotesk',sans-serif;
-    font-size:14px; font-weight:600; color:#C7D3E5; cursor:pointer; border:none; background:none;}
+    font-size:14px; font-weight:600; color:#C7D3E5; cursor:pointer; border:none; outline:none; box-shadow:none;
+    background:none; -webkit-appearance:none; appearance:none;}
   .tab.active{background:var(--amber); color:var(--navy-deep);}
 
   main{padding:20px 16px 8px; max-width:520px; margin:0 auto;}
@@ -40,7 +48,7 @@
   .picker label{display:block; font-size:12.5px; color:var(--muted); margin-bottom:6px; font-weight:500;}
   select, input[type="text"]{
     width:100%; padding:12px 12px; border-radius:10px; border:1px solid var(--line);
-    font-size:15px; font-family:'Inter',sans-serif; background:#FAFBFC; color:var(--text);
+    font-size:15px; font-family:'Inter',sans-serif; background:var(--input-bg); color:var(--text);
   }
   select:focus, input:focus{outline:2px solid var(--sky); outline-offset:1px;}
 
@@ -53,7 +61,7 @@
   .row{display:flex; gap:12px; padding:12px 14px; border-bottom:1px solid var(--line);}
   .list .row:last-child{border-bottom:none;}
   .pair-num{
-    min-width:30px; height:30px; border-radius:8px; background:#EAF1F8; color:var(--sky);
+    min-width:30px; height:30px; border-radius:8px; background:var(--ico-bg); color:var(--sky);
     display:flex; align-items:center; justify-content:center; font-weight:600; font-size:13px; flex-shrink:0;
   }
   .row-text{font-size:14.5px; line-height:1.45;}

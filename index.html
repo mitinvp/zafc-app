@@ -22,6 +22,19 @@
     --text:#20293B;
     --muted:#6B7686;
     --line:#E4E8EE;
+    --item-active:#F0F3F7;
+    --ico-bg:#EAF1F8;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0E141F;
+      --card:#1A2233;
+      --text:#E8ECF4;
+      --muted:#8B96AC;
+      --line:#2A3346;
+      --item-active:#212B40;
+      --ico-bg:#22304A;
+    }
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; padding:0; background:var(--bg); color:var(--text);
@@ -50,7 +63,8 @@
 
   .tabs{display:flex; gap:6px; background:rgba(255,255,255,0.08); border-radius:12px; padding:4px; margin-bottom:0; transform:translateY(14px);}
   .tab{flex:1; text-align:center; padding:11px 0; border-radius:9px; font-family:'Space Grotesk',sans-serif;
-    font-size:14px; font-weight:600; color:#C7D3E5; cursor:pointer; border:none; background:none; transition:background .18s, color .18s;}
+    font-size:14px; font-weight:600; color:#C7D3E5; cursor:pointer; border:none; outline:none; box-shadow:none;
+    background:none; -webkit-appearance:none; appearance:none; transition:background .18s, color .18s;}
   .tab.active{background:var(--amber); color:var(--navy-deep);}
 
   main{padding:32px 16px 8px; max-width:520px; margin:0 auto;}
@@ -65,11 +79,11 @@
     border-bottom:1px solid var(--line);
   }
   .list a.item:last-child{border-bottom:none;}
-  a.item:active{background:#F0F3F7;}
+  a.item:active{background:var(--item-active);}
   .ico{
     width:38px; height:38px; min-width:38px; border-radius:10px;
     display:flex; align-items:center; justify-content:center;
-    background:#EAF1F8; color:var(--sky); font-size:18px;
+    background:var(--ico-bg); color:var(--sky); font-size:18px;
   }
   .item-text{flex:1; min-width:0;}
   .item-text .t{font-size:15px; font-weight:500; line-height:1.3;}
@@ -86,6 +100,22 @@
   }
   .about .contact-row{display:flex; gap:8px; font-size:13.5px; color:var(--muted); margin:0;}
   .about .contact-row a{color:var(--sky); text-decoration:none;}
+
+  .today-card{
+    max-width:520px; margin:0 auto 20px; padding:16px;
+    background:linear-gradient(135deg, var(--navy) 0%, var(--navy-deep) 100%);
+    border-radius:16px; color:#fff; box-shadow:0 1px 2px rgba(20,30,50,0.08);
+  }
+  .today-badge{
+    display:inline-block; font-family:'Space Grotesk',sans-serif; font-size:12px; font-weight:600;
+    color:var(--amber); background:rgba(226,166,58,0.15); padding:4px 10px; border-radius:8px; margin-bottom:8px;
+  }
+  .today-badge.live{color:var(--navy-deep); background:var(--amber);}
+  .today-subject{font-family:'Space Grotesk',sans-serif; font-size:18px; font-weight:600; line-height:1.3;}
+  .today-meta{font-size:13.5px; color:#B9C6DA; margin-top:2px;}
+  .today-empty-text{font-size:13.5px; color:#C7D3E5;}
+  .today-loading, .today-error{font-size:13.5px; color:#C7D3E5; text-align:center; padding:2px 0;}
+  .today-cta{display:inline-block; margin-top:10px; font-size:13px; color:var(--amber); text-decoration:none; font-weight:600;}
 
   [data-view="students"] .teacher-only{display:none;}
   [data-view="teachers"] .student-only{display:none;}
@@ -110,6 +140,8 @@
 </header>
 
 <main>
+
+  <div id="today-widget"></div>
 
   <div class="about">
     <p class="contact-row">📍 м. Запоріжжя, вул. Іванова, 97</p>
@@ -286,15 +318,95 @@
 </main>
 
 <script>
+const SCHEDULE_API = 'https://script.google.com/macros/s/AKfycbySrl-VB-L_2yE_Q0EOj317yJGDIV2AD49tVa1WE_lO5KSGWGiqMYADmPRKkG0Ks72s/exec';
+const DAY_NAMES = ['НЕДІЛЯ','ПОНЕДІЛОК','ВІВТОРОК','СЕРЕДА','ЧЕТВЕР',"П'ЯТНИЦЯ",'СУБОТА'];
+const PAIR_TIMES = {
+  '1':['9:00','10:20'], '2':['10:40','12:00'], '3':['12:30','13:50'],
+  '4':['14:10','15:30'], '5':['15:40','17:00'], '6':['17:10','18:30'], '7':['18:40','20:00']
+};
+
+function toMinutes(t){ const [h,m] = t.split(':').map(Number); return h*60+m; }
+function escapeHtml(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+let _scheduleCache = null;
+async function getScheduleData(){
+  if(_scheduleCache) return _scheduleCache;
+  const res = await fetch(SCHEDULE_API);
+  if(!res.ok) throw new Error('http ' + res.status);
+  const data = await res.json();
+  if(data.error) throw new Error(data.error);
+  _scheduleCache = data;
+  return data;
+}
+
+function renderTodayEmpty(isStudent){
+  document.getElementById('today-widget').innerHTML = `
+    <div class="today-card">
+      <div class="today-empty-text">Обери ${isStudent ? 'групу' : 'своє прізвище'} в розкладі — і тут з'являться сьогоднішні пари.</div>
+      <a class="today-cta" href="schedule.html?view=${isStudent ? 'student' : 'teacher'}">Обрати →</a>
+    </div>`;
+}
+
+function renderTodaySchedule(items, isStudent){
+  const el = document.getElementById('today-widget');
+  if(!items.length){
+    el.innerHTML = `<div class="today-card"><div class="today-empty-text">На сьогодні пар немає 🎉</div></div>`;
+    return;
+  }
+  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  let current = null, next = null;
+  for(const it of items){
+    const t = PAIR_TIMES[it.pair];
+    if(!t) continue;
+    const [s,e] = t;
+    if(nowMin >= toMinutes(s) && nowMin < toMinutes(e)){ current = {...it, start:s, end:e}; break; }
+    if(nowMin < toMinutes(s) && !next){ next = {...it, start:s, end:e}; }
+  }
+  let html = '';
+  if(current){
+    html = `<div class="today-badge live">Зараз • ${escapeHtml(current.pair)} пара, до ${current.end}</div>
+      <div class="today-subject">${escapeHtml(current.subject || '—')}</div>
+      <div class="today-meta">${isStudent ? escapeHtml(current.teacher||'') : escapeHtml(current.group||'')}</div>`;
+  }else if(next){
+    html = `<div class="today-badge">Наступна • ${escapeHtml(next.pair)} пара, з ${next.start}</div>
+      <div class="today-subject">${escapeHtml(next.subject || '—')}</div>
+      <div class="today-meta">${isStudent ? escapeHtml(next.teacher||'') : escapeHtml(next.group||'')}</div>`;
+  }else{
+    html = `<div class="today-badge">На сьогодні все</div><div class="today-empty-text">Пари на сьогодні закінчились.</div>`;
+  }
+  html += `<a class="today-cta" href="schedule.html?view=${isStudent?'student':'teacher'}">Весь розклад на сьогодні →</a>`;
+  el.innerHTML = `<div class="today-card">${html}</div>`;
+}
+
+async function loadTodayWidget(){
+  const isStudent = document.body.getAttribute('data-view') === 'students';
+  const savedKey = isStudent ? localStorage.getItem('zac-schedule-group') : localStorage.getItem('zac-schedule-teacher');
+  if(!savedKey){ renderTodayEmpty(isStudent); return; }
+  document.getElementById('today-widget').innerHTML = `<div class="today-card today-loading">Завантажую сьогоднішні пари…</div>`;
+  try{
+    const data = await getScheduleData();
+    const todayName = DAY_NAMES[new Date().getDay()];
+    let items = data.schedule.filter(it => it.day === todayName);
+    items = isStudent
+      ? items.filter(it => it.group === savedKey)
+      : items.filter(it => (it.teacher||'').toLowerCase().includes(savedKey.toLowerCase()));
+    items.sort((a,b) => Number(a.pair) - Number(b.pair));
+    renderTodaySchedule(items, isStudent);
+  }catch(err){
+    document.getElementById('today-widget').innerHTML = `<div class="today-card today-error">Не вдалося завантажити сьогоднішні пари.</div>`;
+  }
+}
+
 function setView(view){
   document.body.setAttribute('data-view', view);
   document.getElementById('tab-students').classList.toggle('active', view === 'students');
   document.getElementById('tab-teachers').classList.toggle('active', view === 'teachers');
   localStorage.setItem('zac-view', view);
+  loadTodayWidget();
 }
 (function(){
   var saved = localStorage.getItem('zac-view');
-  if(saved) setView(saved);
+  if(saved) setView(saved); else loadTodayWidget();
 })();
 
 if('serviceWorker' in navigator){
