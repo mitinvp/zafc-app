@@ -31,9 +31,18 @@
   header{
     background:linear-gradient(135deg, var(--navy) 0%, var(--navy-deep) 100%);
     color:#fff;
-    padding:22px 20px 0 20px;
+    padding:22px 0 0 0;
     position:sticky; top:0; z-index:10;
+    overflow:hidden;
   }
+  header::before{
+    content:"";
+    position:absolute; top:-40px; right:-40px; width:280px; height:280px;
+    background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20300%20300%22%3E%3Ccircle%20cx%3D%22150%22%20cy%3D%22140%22%20r%3D%2255%22%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%221%22/%3E%3Ccircle%20cx%3D%22150%22%20cy%3D%22140%22%20r%3D%2295%22%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%221%22/%3E%3Ccircle%20cx%3D%22150%22%20cy%3D%22140%22%20r%3D%22135%22%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%221%22/%3E%3Cpath%20d%3D%22M10%2C270%20Q150%2C20%20290%2C120%22%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%221.5%22%20stroke-dasharray%3D%223%207%22/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-size:280px 280px;
+    opacity:0.14; pointer-events:none;
+  }
+  .header-inner{position:relative; z-index:1; max-width:520px; margin:0 auto; padding:0 20px;}
   .brand{display:flex; align-items:center; gap:12px; margin-bottom:18px;}
   .brand img{width:38px; height:38px; border-radius:9px;}
   .brand-text h1{font-family:'Space Grotesk',sans-serif; font-size:17px; font-weight:600; margin:0; line-height:1.25;}
@@ -71,12 +80,11 @@
   footer a{color:var(--sky); text-decoration:none;}
 
   .about{
-    max-width:520px; margin:0 auto 24px; padding:16px 16px;
+    max-width:520px; margin:0 auto 24px; padding:14px 16px;
     background:var(--card); border-radius:16px; box-shadow:0 1px 2px rgba(20,30,50,0.05);
+    display:flex; flex-direction:column; gap:6px;
   }
-  .about h2{font-family:'Space Grotesk',sans-serif; font-size:14px; font-weight:600; color:var(--muted); margin:0 0 8px;}
-  .about p{margin:0 0 4px; font-size:13.5px; line-height:1.5; color:var(--text);}
-  .about .contact-row{display:flex; gap:8px; font-size:13px; color:var(--muted); margin-top:2px;}
+  .about .contact-row{display:flex; gap:8px; font-size:13.5px; color:var(--muted); margin:0;}
   .about .contact-row a{color:var(--sky); text-decoration:none;}
 
   [data-view="students"] .teacher-only{display:none;}
@@ -86,24 +94,24 @@
 <body data-view="students">
 
 <header>
-  <div class="brand">
-    <img src="icons/icon-192.png" alt="">
-    <div class="brand-text">
-      <h1>ЗАФК ім. О. Г. Івченка</h1>
-      <p>Розділи сайту для студентів і викладачів</p>
+  <div class="header-inner">
+    <div class="brand">
+      <img src="icons/icon-192.png" alt="">
+      <div class="brand-text">
+        <h1>ЗАФК ім. О. Г. Івченка</h1>
+        <p>Розділи сайту для студентів і викладачів</p>
+      </div>
     </div>
-  </div>
-  <div class="tabs">
-    <button class="tab active" id="tab-students" onclick="setView('students')">Студентам</button>
-    <button class="tab" id="tab-teachers" onclick="setView('teachers')">Викладачам</button>
+    <div class="tabs">
+      <button class="tab active" id="tab-students" onclick="setView('students')">Студентам</button>
+      <button class="tab" id="tab-teachers" onclick="setView('teachers')">Викладачам</button>
+    </div>
   </div>
 </header>
 
 <main>
 
   <div class="about">
-    <h2>Про коледж</h2>
-    <p>Запорізький авіаційний фаховий коледж ім. О. Г. Івченка — заклад фахової передвищої освіти I–II рівнів акредитації, заснований у 1930-х роках при авіадвигунобудівному заводі. Готує фахівців за напрямами авіаційної, комп'ютерної та металургійної галузей.</p>
     <p class="contact-row">📍 м. Запоріжжя, вул. Іванова, 97</p>
     <p class="contact-row">☎️ <a href="tel:+380617205526">(061) 720-55-26</a></p>
     <p class="contact-row">✉️ <a href="mailto:zac.office@meta.ua">zac.office@meta.ua</a></p>
