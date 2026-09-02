@@ -129,8 +129,22 @@ function setMode(m){
   document.getElementById('tab-teacher').classList.toggle('active', m === 'teacher');
   document.getElementById('student-picker').style.display = m === 'student' ? 'block' : 'none';
   document.getElementById('teacher-picker').style.display = m === 'teacher' ? 'block' : 'none';
-  document.getElementById('results').innerHTML = '';
   localStorage.setItem('zac-schedule-mode', m);
+  refreshResults();
+}
+
+function refreshResults(){
+  const results = document.getElementById('results');
+  if(!scheduleData){ results.innerHTML = `<p class="status">Завантажую розклад…</p>`; return; }
+  if(mode === 'student'){
+    const groupSelect = document.getElementById('groupSelect');
+    if(groupSelect.value) renderList(getGroupSchedule(groupSelect.value), {emptyText:'У цієї групи немає занять у знайденому розкладі.'});
+    else results.innerHTML = `<p class="status">Оберіть групу вище.</p>`;
+  }else if(mode === 'teacher'){
+    const teacherInput = document.getElementById('teacherInput');
+    if(teacherInput.value) renderList(searchTeacher(teacherInput.value), {emptyText:'Не знайшов збігів — перевірте написання прізвища.'});
+    else results.innerHTML = `<p class="status">Введіть прізвище викладача вище.</p>`;
+  }
 }
 
 function entryMatchesTeacher(it, q){
@@ -151,12 +165,22 @@ function searchTeacher(query){
   return scheduleData.schedule.filter(it => entryMatchesTeacher(it, q));
 }
 
+const TEACHER_NAME_RE = /^[А-ЯІЇЄҐ][а-яіїєґ'ʼ]+(-[А-ЯІЇЄҐ][а-яіїєґ'ʼ]+)?(\s[А-ЯІЇЄҐ]\.\s?[А-ЯІЇЄҐ]?\.?)?$/;
+const TEACHER_NAME_EXCLUDE = new Set(['вакансія','вакансія.','ваканція']);
+
+function looksLikeTeacherName(s){
+  const v = (s||'').trim();
+  if(!v) return false;
+  if(TEACHER_NAME_EXCLUDE.has(v.toLowerCase())) return false;
+  return TEACHER_NAME_RE.test(v);
+}
+
 function collectTeacherNames(){
   const names = new Set();
   for(const it of scheduleData.schedule){
-    if(it.teacher) names.add(it.teacher);
-    if(it.numerator && it.numerator.teacher) names.add(it.numerator.teacher);
-    if(it.denominator && it.denominator.teacher) names.add(it.denominator.teacher);
+    if(looksLikeTeacherName(it.teacher)) names.add(it.teacher);
+    if(it.numerator && looksLikeTeacherName(it.numerator.teacher)) names.add(it.numerator.teacher);
+    if(it.denominator && looksLikeTeacherName(it.denominator.teacher)) names.add(it.denominator.teacher);
   }
   return Array.from(names).sort();
 }
@@ -227,27 +251,24 @@ async function loadSchedule(){
     if(savedGroup && scheduleData.groups.includes(savedGroup)) groupSelect.value = savedGroup;
     groupSelect.addEventListener('change', () => {
       localStorage.setItem('zac-schedule-group', groupSelect.value);
-      renderList(getGroupSchedule(groupSelect.value), {emptyText:'У цієї групи немає занять у знайденому розкладі.'});
+      refreshResults();
     });
 
     const teacherList = document.getElementById('teacherList');
     teacherList.innerHTML = collectTeacherNames().map(n => `<option value="${escapeHtml(n)}">`).join('');
     const teacherInput = document.getElementById('teacherInput');
+    const savedTeacher = localStorage.getItem('zac-schedule-teacher');
+    if(savedTeacher) teacherInput.value = savedTeacher;
     let debounce;
     teacherInput.addEventListener('input', () => {
       clearTimeout(debounce);
       debounce = setTimeout(() => {
         localStorage.setItem('zac-schedule-teacher', teacherInput.value);
-        renderList(searchTeacher(teacherInput.value), {emptyText:'Не знайшов збігів — перевірте написання прізвища.'});
+        refreshResults();
       }, 250);
     });
 
-    results.innerHTML = `<p class="status">Оберіть ${mode === 'teacher' ? 'викладача' : 'групу'} вище.</p>`;
-    if(mode === 'student' && groupSelect.value) renderList(getGroupSchedule(groupSelect.value));
-    if(mode === 'teacher'){
-      const savedTeacher = localStorage.getItem('zac-schedule-teacher');
-      if(savedTeacher){ teacherInput.value = savedTeacher; renderList(searchTeacher(savedTeacher)); }
-    }
+    refreshResults();
   }catch(err){
     results.innerHTML = `<p class="status error">Не вдалося завантажити розклад. Перевірте інтернет-з'єднання.</p>`;
   }
