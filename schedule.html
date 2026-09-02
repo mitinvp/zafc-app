@@ -69,6 +69,12 @@
   .row-text .subject{font-weight:500;}
   .row-text .teacher{color:var(--muted); font-size:13px; margin-top:1px;}
   .row-text .extra{color:var(--muted); font-size:12.5px; margin-top:2px; font-style:italic;}
+  .week-block{margin-top:6px; padding-top:6px; border-top:1px dashed var(--line);}
+  .week-block:first-of-type{margin-top:4px; padding-top:0; border-top:none;}
+  .week-tag{display:inline-block; font-size:10.5px; font-weight:700; letter-spacing:.02em; padding:1px 7px;
+    border-radius:6px; margin-bottom:2px;}
+  .week-tag.num{background:#DCEEFB; color:#1B6FA8;}
+  .week-tag.denom{background:#FBF3D2; color:#8A6D12;}
 
   .note{
     font-size:12px; color:var(--muted); text-align:center; margin:18px auto 0;
@@ -127,26 +133,56 @@ function setMode(m){
   localStorage.setItem('zac-schedule-mode', m);
 }
 
+function entryMatchesTeacher(it, q){
+  if((it.teacher||'').toLowerCase().includes(q)) return true;
+  if((it.extra||[]).some(x => x.toLowerCase().includes(q))) return true;
+  if(it.numerator && (it.numerator.teacher||'').toLowerCase().includes(q)) return true;
+  if(it.denominator && (it.denominator.teacher||'').toLowerCase().includes(q)) return true;
+  return false;
+}
+
 function getGroupSchedule(groupName){
-  return scheduleData.schedule
-    .filter(it => it.group === groupName)
-    .map(it => ({day: it.day, pair: it.pair, subject: it.subject, teacher: it.teacher, extra: it.extra}));
+  return scheduleData.schedule.filter(it => it.group === groupName);
 }
 
 function searchTeacher(query){
   const q = query.trim().toLowerCase();
   if(!q) return [];
-  return scheduleData.schedule
-    .filter(it => (it.teacher||'').toLowerCase().includes(q) || (it.extra||[]).some(x => x.toLowerCase().includes(q)))
-    .map(it => ({day: it.day, pair: it.pair, group: it.group, subject: it.subject, teacher: it.teacher, extra: it.extra}));
+  return scheduleData.schedule.filter(it => entryMatchesTeacher(it, q));
 }
 
 function collectTeacherNames(){
   const names = new Set();
   for(const it of scheduleData.schedule){
     if(it.teacher) names.add(it.teacher);
+    if(it.numerator && it.numerator.teacher) names.add(it.numerator.teacher);
+    if(it.denominator && it.denominator.teacher) names.add(it.denominator.teacher);
   }
   return Array.from(names).sort();
+}
+
+function renderPairContent(it){
+  if(it.numerator || it.denominator){
+    let html = '';
+    if(it.numerator){
+      html += `<div class="week-block"><span class="week-tag num">ЧИСЕЛЬНИК</span>
+        <div class="subject">${escapeHtml(it.numerator.subject||'—')}</div>
+        ${it.numerator.teacher ? `<div class="teacher">${escapeHtml(it.numerator.teacher)}</div>` : ''}</div>`;
+    }
+    if(it.denominator){
+      html += `<div class="week-block"><span class="week-tag denom">ЗНАМЕННИК</span>
+        <div class="subject">${escapeHtml(it.denominator.subject||'—')}</div>
+        ${it.denominator.teacher ? `<div class="teacher">${escapeHtml(it.denominator.teacher)}</div>` : ''}</div>`;
+    }
+    if(it.subject){
+      html += `<div class="week-block"><div class="subject">${escapeHtml(it.subject)}</div>
+        ${it.teacher ? `<div class="teacher">${escapeHtml(it.teacher)}</div>` : ''}</div>`;
+    }
+    return html;
+  }
+  const teacherLine = it.teacher ? `<div class="teacher">${escapeHtml(it.teacher)}</div>` : '';
+  const extraLine = (it.extra && it.extra.length) ? `<div class="extra">${it.extra.map(escapeHtml).join(' · ')}</div>` : '';
+  return `<div class="subject">${escapeHtml(it.subject||'—')}</div>${teacherLine}${extraLine}`;
 }
 
 function renderList(items, opts={}){
@@ -164,9 +200,7 @@ function renderList(items, opts={}){
     html += `<div class="day-group"><h2>${day}</h2><div class="list">`;
     for(const it of byDay[day].sort((a,b)=>Number(a.pair)-Number(b.pair))){
       const groupTag = it.group ? `<span class="group-tag">${escapeHtml(it.group)}</span>` : '';
-      const teacherLine = it.teacher ? `<div class="teacher">${escapeHtml(it.teacher)}</div>` : '';
-      const extraLine = (it.extra && it.extra.length) ? `<div class="extra">${it.extra.map(escapeHtml).join(' · ')}</div>` : '';
-      html += `<div class="row"><div class="pair-num">${escapeHtml(it.pair)}</div><div class="row-text">${groupTag}<div class="subject">${escapeHtml(it.subject||'—')}</div>${teacherLine}${extraLine}</div></div>`;
+      html += `<div class="row"><div class="pair-num">${escapeHtml(it.pair)}</div><div class="row-text">${groupTag}${renderPairContent(it)}</div></div>`;
     }
     html += `</div></div>`;
   }

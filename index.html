@@ -116,6 +116,12 @@
   .today-empty-text{font-size:13.5px; color:#C7D3E5;}
   .today-loading, .today-error{font-size:13.5px; color:#C7D3E5; text-align:center; padding:2px 0;}
   .today-cta{display:inline-block; margin-top:10px; font-size:13px; color:var(--amber); text-decoration:none; font-weight:600;}
+  .today-week-block{margin-top:8px;}
+  .today-week-block:first-of-type{margin-top:0;}
+  .today-week-tag{display:inline-block; font-size:10px; font-weight:700; letter-spacing:.02em; padding:2px 8px;
+    border-radius:6px; margin-bottom:3px;}
+  .today-week-tag.num{background:rgba(62,124,177,0.25); color:#8FC3F0;}
+  .today-week-tag.denom{background:rgba(226,166,58,0.22); color:var(--amber);}
 
   [data-view="students"] .teacher-only{display:none;}
   [data-view="teachers"] .student-only{display:none;}
@@ -347,6 +353,27 @@ function renderTodayEmpty(isStudent){
     </div>`;
 }
 
+function renderTodayEntry(it, isStudent, badgeClass, badgeText){
+  const who = isStudent ? it.teacher : it.group;
+  if(it.numerator || it.denominator){
+    let inner = '';
+    if(it.numerator){
+      inner += `<div class="today-week-block"><span class="today-week-tag num">ЧИСЕЛЬНИК</span>
+        <div class="today-subject">${escapeHtml(it.numerator.subject||'—')}</div>
+        <div class="today-meta">${isStudent ? escapeHtml(it.numerator.teacher||'') : escapeHtml(it.group||'')}</div></div>`;
+    }
+    if(it.denominator){
+      inner += `<div class="today-week-block"><span class="today-week-tag denom">ЗНАМЕННИК</span>
+        <div class="today-subject">${escapeHtml(it.denominator.subject||'—')}</div>
+        <div class="today-meta">${isStudent ? escapeHtml(it.denominator.teacher||'') : escapeHtml(it.group||'')}</div></div>`;
+    }
+    return `<div class="today-badge ${badgeClass}">${badgeText}</div>${inner}`;
+  }
+  return `<div class="today-badge ${badgeClass}">${badgeText}</div>
+    <div class="today-subject">${escapeHtml(it.subject || '—')}</div>
+    <div class="today-meta">${escapeHtml(who||'')}</div>`;
+}
+
 function renderTodaySchedule(items, isStudent){
   const el = document.getElementById('today-widget');
   if(!items.length){
@@ -364,13 +391,9 @@ function renderTodaySchedule(items, isStudent){
   }
   let html = '';
   if(current){
-    html = `<div class="today-badge live">Зараз • ${escapeHtml(current.pair)} пара, до ${current.end}</div>
-      <div class="today-subject">${escapeHtml(current.subject || '—')}</div>
-      <div class="today-meta">${isStudent ? escapeHtml(current.teacher||'') : escapeHtml(current.group||'')}</div>`;
+    html = renderTodayEntry(current, isStudent, 'live', `Зараз • ${escapeHtml(current.pair)} пара, до ${current.end}`);
   }else if(next){
-    html = `<div class="today-badge">Наступна • ${escapeHtml(next.pair)} пара, з ${next.start}</div>
-      <div class="today-subject">${escapeHtml(next.subject || '—')}</div>
-      <div class="today-meta">${isStudent ? escapeHtml(next.teacher||'') : escapeHtml(next.group||'')}</div>`;
+    html = renderTodayEntry(next, isStudent, '', `Наступна • ${escapeHtml(next.pair)} пара, з ${next.start}`);
   }else{
     html = `<div class="today-badge">На сьогодні все</div><div class="today-empty-text">Пари на сьогодні закінчились.</div>`;
   }
@@ -389,7 +412,12 @@ async function loadTodayWidget(){
     let items = data.schedule.filter(it => it.day === todayName);
     items = isStudent
       ? items.filter(it => it.group === savedKey)
-      : items.filter(it => (it.teacher||'').toLowerCase().includes(savedKey.toLowerCase()));
+      : items.filter(it => {
+          const q = savedKey.toLowerCase();
+          return (it.teacher||'').toLowerCase().includes(q)
+            || (it.numerator && (it.numerator.teacher||'').toLowerCase().includes(q))
+            || (it.denominator && (it.denominator.teacher||'').toLowerCase().includes(q));
+        });
     items.sort((a,b) => Number(a.pair) - Number(b.pair));
     renderTodaySchedule(items, isStudent);
   }catch(err){
