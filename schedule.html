@@ -292,6 +292,7 @@ window.OneSignalDeferred.push(async function(OneSignal){
 
 function tagOneSignal(kind, value){
   if(!value) return;
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
   window.OneSignalDeferred.push(async function(OneSignal){
     try{ await OneSignal.User.addTag(kind, value); }catch(e){}
   });
