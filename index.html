@@ -336,6 +336,7 @@
 <script>
 const SCHEDULE_API = 'https://script.google.com/macros/s/AKfycbySrl-VB-L_2yE_Q0EOj317yJGDIV2AD49tVa1WE_lO5KSGWGiqMYADmPRKkG0Ks72s/exec';
 const DAY_NAMES = ['НЕДІЛЯ','ПОНЕДІЛОК','ВІВТОРОК','СЕРЕДА','ЧЕТВЕР',"П'ЯТНИЦЯ",'СУБОТА'];
+const WEEK_ORDER = ['ПОНЕДІЛОК','ВІВТОРОК','СЕРЕДА','ЧЕТВЕР',"П'ЯТНИЦЯ",'СУБОТА'];
 const PAIR_TIMES = {
   '1':['9:00','10:20'], '2':['10:40','12:00'], '3':['12:30','13:50'],
   '4':['14:10','15:30'], '5':['15:40','17:00'], '6':['17:10','18:30'], '7':['18:40','20:00']
@@ -404,30 +405,50 @@ function renderTodayEntry(it, isStudent, badgeClass, badgeText){
     <div class="today-meta">${escapeHtml(who||'')}</div>`;
 }
 
-function renderTodaySchedule(items, isStudent){
-  const el = document.getElementById('today-widget');
-  if(!items.length){
-    el.innerHTML = `<div class="today-card"><div class="today-empty-text">На сьогодні пар немає 🎉</div></div>`;
-    return;
+function findNextDayItem(mine, todayName){
+  const todayIdx = WEEK_ORDER.indexOf(todayName);
+  if(todayIdx === -1) return null;
+  for(let offset = 1; offset <= 6; offset++){
+    const day = WEEK_ORDER[(todayIdx + offset) % WEEK_ORDER.length];
+    const dayItems = mine.filter(it => it.day === day);
+    if(dayItems.length){
+      dayItems.sort((a,b) => Number(a.pair) - Number(b.pair));
+      return { day, item: dayItems[0] };
+    }
   }
+  return null;
+}
+
+function renderTodaySchedule(todays, isStudent, mine, todayName){
+  const el = document.getElementById('today-widget');
   const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
   let current = null, next = null;
-  for(const it of items){
+  for(const it of todays){
     const t = PAIR_TIMES[it.pair];
     if(!t) continue;
     const [s,e] = t;
     if(nowMin >= toMinutes(s) && nowMin < toMinutes(e)){ current = {...it, start:s, end:e}; break; }
     if(nowMin < toMinutes(s) && !next){ next = {...it, start:s, end:e}; }
   }
+
   let html = '';
+  let ctaLabel = 'Весь розклад на сьогодні →';
+
   if(current){
     html = renderTodayEntry(current, isStudent, 'live', `Зараз • ${escapeHtml(current.pair)} пара, до ${current.end}`);
   }else if(next){
     html = renderTodayEntry(next, isStudent, '', `Наступна • ${escapeHtml(next.pair)} пара, з ${next.start}`);
   }else{
-    html = `<div class="today-badge">На сьогодні все</div><div class="today-empty-text">Пари на сьогодні закінчились.</div>`;
+    const ahead = findNextDayItem(mine, todayName);
+    if(ahead){
+      html = `<div class="today-empty-text">${todays.length ? 'Пари на сьогодні закінчились.' : 'Сьогодні пар немає.'}</div>`
+        + renderTodayEntry(ahead.item, isStudent, '', `Далі • ${ahead.day}, ${escapeHtml(ahead.item.pair)} пара`);
+      ctaLabel = 'Весь розклад →';
+    }else{
+      html = `<div class="today-badge">На сьогодні все</div><div class="today-empty-text">Пари на сьогодні закінчились.</div>`;
+    }
   }
-  html += `<a class="today-cta" href="schedule.html?view=${isStudent?'student':'teacher'}">Весь розклад на сьогодні →</a>`;
+  html += `<a class="today-cta" href="schedule.html?view=${isStudent?'student':'teacher'}">${ctaLabel}</a>`;
   el.innerHTML = `<div class="today-card">${html}</div>`;
 }
 
@@ -438,13 +459,12 @@ async function loadTodayWidget(){
   document.getElementById('today-widget').innerHTML = `<div class="today-card today-loading">Завантажую сьогоднішні пари…</div>`;
   try{
     const data = await getScheduleData();
+    const mine = isStudent
+      ? data.schedule.filter(it => it.group === savedKey)
+      : data.schedule.filter(it => entryMatchesTeacherQuery(it, savedKey.toLowerCase()));
     const todayName = DAY_NAMES[new Date().getDay()];
-    let items = data.schedule.filter(it => it.day === todayName);
-    items = isStudent
-      ? items.filter(it => it.group === savedKey)
-      : items.filter(it => entryMatchesTeacherQuery(it, savedKey.toLowerCase()));
-    items.sort((a,b) => Number(a.pair) - Number(b.pair));
-    renderTodaySchedule(items, isStudent);
+    const todays = mine.filter(it => it.day === todayName).sort((a,b) => Number(a.pair) - Number(b.pair));
+    renderTodaySchedule(todays, isStudent, mine, todayName);
   }catch(err){
     document.getElementById('today-widget').innerHTML = `<div class="today-card today-error">Не вдалося завантажити сьогоднішні пари.</div>`;
   }
