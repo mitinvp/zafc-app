@@ -150,9 +150,16 @@ function refreshResults(){
 
 function entryMatchesTeacher(it, q){
   if((it.teacher||'').toLowerCase().includes(q)) return true;
+  if((it.teachers||[]).some(t => t.toLowerCase().includes(q))) return true;
   if((it.extra||[]).some(x => x.toLowerCase().includes(q))) return true;
-  if(it.numerator && (it.numerator.teacher||'').toLowerCase().includes(q)) return true;
-  if(it.denominator && (it.denominator.teacher||'').toLowerCase().includes(q)) return true;
+  if(it.numerator){
+    if((it.numerator.teacher||'').toLowerCase().includes(q)) return true;
+    if((it.numerator.teachers||[]).some(t => t.toLowerCase().includes(q))) return true;
+  }
+  if(it.denominator){
+    if((it.denominator.teacher||'').toLowerCase().includes(q)) return true;
+    if((it.denominator.teachers||[]).some(t => t.toLowerCase().includes(q))) return true;
+  }
   return false;
 }
 
@@ -166,46 +173,51 @@ function searchTeacher(query){
   return scheduleData.schedule.filter(it => entryMatchesTeacher(it, q));
 }
 
-const TEACHER_NAME_RE = /^[А-ЯІЇЄҐ][а-яіїєґ'ʼ]+(-[А-ЯІЇЄҐ][а-яіїєґ'ʼ]+)?(\s[А-ЯІЇЄҐ]\.\s?[А-ЯІЇЄҐ]?\.?)?$/;
-const TEACHER_NAME_EXCLUDE = new Set(['вакансія','вакансія.','ваканція']);
-
-function looksLikeTeacherName(s){
-  const v = (s||'').trim();
-  if(!v) return false;
-  if(TEACHER_NAME_EXCLUDE.has(v.toLowerCase())) return false;
-  return TEACHER_NAME_RE.test(v);
-}
-
 function collectTeacherNames(){
   const names = new Set();
+  function addBlock(block){
+    if(!block) return;
+    if(block.teacher) names.add(block.teacher);
+    (block.teachers||[]).forEach(t => names.add(t));
+  }
   for(const it of scheduleData.schedule){
-    if(looksLikeTeacherName(it.teacher)) names.add(it.teacher);
-    if(it.numerator && looksLikeTeacherName(it.numerator.teacher)) names.add(it.numerator.teacher);
-    if(it.denominator && looksLikeTeacherName(it.denominator.teacher)) names.add(it.denominator.teacher);
+    addBlock(it);
+    addBlock(it.numerator);
+    addBlock(it.denominator);
   }
   return Array.from(names).sort();
+}
+
+function teacherText(block){
+  if(!block) return '';
+  if(block.teachers && block.teachers.length) return block.teachers.join(', ');
+  return block.teacher || '';
 }
 
 function renderPairContent(it){
   if(it.numerator || it.denominator){
     let html = '';
     if(it.numerator){
+      const t = teacherText(it.numerator);
       html += `<div class="week-block"><span class="week-tag num">ЧИСЕЛЬНИК</span>
         <div class="subject">${escapeHtml(it.numerator.subject||'—')}</div>
-        ${it.numerator.teacher ? `<div class="teacher">${escapeHtml(it.numerator.teacher)}</div>` : ''}</div>`;
+        ${t ? `<div class="teacher">${escapeHtml(t)}</div>` : ''}</div>`;
     }
     if(it.denominator){
+      const t = teacherText(it.denominator);
       html += `<div class="week-block"><span class="week-tag denom">ЗНАМЕННИК</span>
         <div class="subject">${escapeHtml(it.denominator.subject||'—')}</div>
-        ${it.denominator.teacher ? `<div class="teacher">${escapeHtml(it.denominator.teacher)}</div>` : ''}</div>`;
+        ${t ? `<div class="teacher">${escapeHtml(t)}</div>` : ''}</div>`;
     }
     if(it.subject){
+      const t = teacherText(it);
       html += `<div class="week-block"><div class="subject">${escapeHtml(it.subject)}</div>
-        ${it.teacher ? `<div class="teacher">${escapeHtml(it.teacher)}</div>` : ''}</div>`;
+        ${t ? `<div class="teacher">${escapeHtml(t)}</div>` : ''}</div>`;
     }
     return html;
   }
-  const teacherLine = it.teacher ? `<div class="teacher">${escapeHtml(it.teacher)}</div>` : '';
+  const t = teacherText(it);
+  const teacherLine = t ? `<div class="teacher">${escapeHtml(t)}</div>` : '';
   const extraLine = (it.extra && it.extra.length) ? `<div class="extra">${it.extra.map(escapeHtml).join(' · ')}</div>` : '';
   return `<div class="subject">${escapeHtml(it.subject||'—')}</div>${teacherLine}${extraLine}`;
 }
