@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <style>
   :root{
     --navy:#16233F;
@@ -116,6 +117,10 @@
   .today-empty-text{font-size:13.5px; color:#C7D3E5;}
   .today-loading, .today-error{font-size:13.5px; color:#C7D3E5; text-align:center; padding:2px 0;}
   .today-cta{display:inline-block; margin-top:10px; font-size:13px; color:var(--amber); text-decoration:none; font-weight:600;}
+  .push-btn{
+    background:none; border:none; font:inherit; color:var(--amber); font-weight:700;
+    cursor:pointer; padding:0; margin-top:8px; font-size:13px;
+  }
   .today-week-block{margin-top:8px;}
   .today-week-block:first-of-type{margin-top:0;}
   .today-week-tag{display:inline-block; font-size:10px; font-weight:700; letter-spacing:.02em; padding:2px 8px;
@@ -146,6 +151,11 @@
 </header>
 
 <main>
+
+  <div id="push-banner" class="today-card" style="display:none;">
+    <div class="today-empty-text">🔔 Отримуй сповіщення, коли в розкладі щось зміниться</div>
+    <button class="push-btn" id="push-btn">Увімкнути →</button>
+  </div>
 
   <div id="today-widget"></div>
 
@@ -431,6 +441,7 @@ function setView(view){
   document.getElementById('tab-teachers').classList.toggle('active', view === 'teachers');
   localStorage.setItem('zac-view', view);
   loadTodayWidget();
+  tagOneSignalRole();
 }
 (function(){
   var saved = localStorage.getItem('zac-view');
@@ -442,6 +453,42 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(function(){});
   });
 }
+
+// --- OneSignal push notifications ---
+window.OneSignalDeferred = window.OneSignalDeferred || [];
+
+function tagOneSignalRole(){
+  const isStudent = document.body.getAttribute('data-view') === 'students';
+  window.OneSignalDeferred.push(async function(OneSignal){
+    try{ await OneSignal.User.addTag('role', isStudent ? 'student' : 'teacher'); }catch(e){}
+  });
+}
+
+window.OneSignalDeferred.push(async function(OneSignal){
+  await OneSignal.init({
+    appId: 'e969a28b-d25b-4ec8-b2fc-cc0b581e30ba',
+    serviceWorkerPath: '/zafc-app/onesignal/OneSignalSDKWorker.js',
+    serviceWorkerParam: { scope: '/zafc-app/onesignal/' }
+  });
+
+  const banner = document.getElementById('push-banner');
+  const btn = document.getElementById('push-btn');
+
+  function refreshBanner(){
+    if(banner) banner.style.display = OneSignal.Notifications.permission ? 'none' : 'block';
+  }
+  refreshBanner();
+  OneSignal.Notifications.addEventListener('permissionChange', refreshBanner);
+
+  if(btn){
+    btn.addEventListener('click', async () => {
+      await OneSignal.Notifications.requestPermission();
+      refreshBanner();
+    });
+  }
+
+  tagOneSignalRole();
+});
 </script>
 
 </body>

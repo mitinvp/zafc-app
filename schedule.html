@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <style>
   :root{
     --navy:#16233F; --navy-deep:#0F1A30; --sky:#3E7CB1; --amber:#E2A63B;
@@ -249,21 +250,26 @@ async function loadSchedule(){
     groupSelect.innerHTML = scheduleData.groups.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
     const savedGroup = localStorage.getItem('zac-schedule-group');
     if(savedGroup && scheduleData.groups.includes(savedGroup)) groupSelect.value = savedGroup;
+    if(groupSelect.value) tagOneSignal('group', groupSelect.value);
     groupSelect.addEventListener('change', () => {
       localStorage.setItem('zac-schedule-group', groupSelect.value);
+      tagOneSignal('group', groupSelect.value);
       refreshResults();
     });
 
+    const knownTeachers = collectTeacherNames();
     const teacherList = document.getElementById('teacherList');
-    teacherList.innerHTML = collectTeacherNames().map(n => `<option value="${escapeHtml(n)}">`).join('');
+    teacherList.innerHTML = knownTeachers.map(n => `<option value="${escapeHtml(n)}">`).join('');
     const teacherInput = document.getElementById('teacherInput');
     const savedTeacher = localStorage.getItem('zac-schedule-teacher');
     if(savedTeacher) teacherInput.value = savedTeacher;
+    if(savedTeacher && knownTeachers.includes(savedTeacher)) tagOneSignal('teacher', savedTeacher);
     let debounce;
     teacherInput.addEventListener('input', () => {
       clearTimeout(debounce);
       debounce = setTimeout(() => {
         localStorage.setItem('zac-schedule-teacher', teacherInput.value);
+        if(knownTeachers.includes(teacherInput.value)) tagOneSignal('teacher', teacherInput.value);
         refreshResults();
       }, 250);
     });
@@ -272,6 +278,23 @@ async function loadSchedule(){
   }catch(err){
     results.innerHTML = `<p class="status error">Не вдалося завантажити розклад. Перевірте інтернет-з'єднання.</p>`;
   }
+}
+
+// --- OneSignal push notifications ---
+window.OneSignalDeferred = window.OneSignalDeferred || [];
+window.OneSignalDeferred.push(async function(OneSignal){
+  await OneSignal.init({
+    appId: 'e969a28b-d25b-4ec8-b2fc-cc0b581e30ba',
+    serviceWorkerPath: '/zafc-app/onesignal/OneSignalSDKWorker.js',
+    serviceWorkerParam: { scope: '/zafc-app/onesignal/' }
+  });
+});
+
+function tagOneSignal(kind, value){
+  if(!value) return;
+  window.OneSignalDeferred.push(async function(OneSignal){
+    try{ await OneSignal.User.addTag(kind, value); }catch(e){}
+  });
 }
 
 (function init(){
