@@ -1,4 +1,4 @@
-const CACHE = 'zac-app-v4';
+const CACHE = 'zac-app-v5';
 const ASSETS = ['./', './index.html', './schedule.html', './bells.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {

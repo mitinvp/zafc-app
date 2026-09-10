@@ -262,7 +262,7 @@ async function loadSchedule(){
     groupSelect.innerHTML = scheduleData.groups.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
     const savedGroup = localStorage.getItem('zac-schedule-group');
     if(savedGroup && scheduleData.groups.includes(savedGroup)) groupSelect.value = savedGroup;
-    if(groupSelect.value) tagOneSignal('group', groupSelect.value);
+    if(savedGroup && scheduleData.groups.includes(savedGroup)) tagOneSignal('group', savedGroup);
     groupSelect.addEventListener('change', () => {
       localStorage.setItem('zac-schedule-group', groupSelect.value);
       tagOneSignal('group', groupSelect.value);
