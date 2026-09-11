@@ -76,6 +76,8 @@
     border-radius:6px; margin-bottom:2px;}
   .week-tag.num{background:#DCEEFB; color:#1B6FA8;}
   .week-tag.denom{background:#FBF3D2; color:#8A6D12;}
+  .week-block.other-week{opacity:0.55;}
+  .current-mark{color:var(--sky); font-weight:800;}
 
   .note{
     font-size:12px; color:var(--muted); text-align:center; margin:18px auto 0;
@@ -120,6 +122,28 @@
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbySrl-VB-L_2yE_Q0EOj317yJGDIV2AD49tVa1WE_lO5KSGWGiqMYADmPRKkG0Ks72s/exec';
+
+// Academic year always starts on a "чисельник" (numerator) week, beginning
+// September 1st. Weeks alternate from there.
+function mondayOf(d){
+  const dow = d.getDay();
+  const diff = dow === 0 ? 6 : dow - 1;
+  const m = new Date(d);
+  m.setDate(d.getDate() - diff);
+  m.setHours(0,0,0,0);
+  return m;
+}
+function academicYearStartMonday(d){
+  const year = d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1;
+  return mondayOf(new Date(year, 8, 1));
+}
+function getCurrentWeekParity(){
+  const now = new Date();
+  const ref = academicYearStartMonday(now);
+  const thisMonday = mondayOf(now);
+  const weeksSince = Math.round((thisMonday - ref) / (7*24*60*60*1000));
+  return weeksSince % 2 === 0 ? 'numerator' : 'denominator';
+}
 
 let scheduleData = null; // {groups: [...], schedule: [{day,pair,group,subject,teacher,extra}]}
 let mode = null;
@@ -196,16 +220,19 @@ function teacherText(block){
 
 function renderPairContent(it){
   if(it.numerator || it.denominator){
+    const parity = getCurrentWeekParity();
     let html = '';
     if(it.numerator){
       const t = teacherText(it.numerator);
-      html += `<div class="week-block"><span class="week-tag num">ЧИСЕЛЬНИК</span>
+      const isCurrent = parity === 'numerator';
+      html += `<div class="week-block${isCurrent ? '' : ' other-week'}"><span class="week-tag num">ЧИСЕЛЬНИК${isCurrent ? ' <span class=\"current-mark\">• зараз</span>' : ''}</span>
         <div class="subject">${escapeHtml(it.numerator.subject||'—')}</div>
         ${t ? `<div class="teacher">${escapeHtml(t)}</div>` : ''}</div>`;
     }
     if(it.denominator){
       const t = teacherText(it.denominator);
-      html += `<div class="week-block"><span class="week-tag denom">ЗНАМЕННИК</span>
+      const isCurrent = parity === 'denominator';
+      html += `<div class="week-block${isCurrent ? '' : ' other-week'}"><span class="week-tag denom">ЗНАМЕННИК${isCurrent ? ' <span class=\"current-mark\">• зараз</span>' : ''}</span>
         <div class="subject">${escapeHtml(it.denominator.subject||'—')}</div>
         ${t ? `<div class="teacher">${escapeHtml(t)}</div>` : ''}</div>`;
     }

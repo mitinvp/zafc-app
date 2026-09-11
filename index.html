@@ -119,6 +119,16 @@
     border-radius:6px; margin-bottom:3px;}
   .today-week-tag.num{background:rgba(62,124,177,0.25); color:#8FC3F0;}
   .today-week-tag.denom{background:rgba(226,166,58,0.22); color:var(--amber);}
+  .today-week-block.is-other{opacity:0.5;}
+  .today-current-mark{color:var(--amber);}
+
+  .today-row{padding:10px 0; border-top:1px solid rgba(255,255,255,0.08);}
+  .today-row:first-child{border-top:none; padding-top:0;}
+  .today-row.current{background:rgba(226,166,58,0.10); margin:0 -16px; padding:10px 16px; border-radius:10px; border-top:none;}
+  .today-row-head{display:flex; align-items:center; gap:8px; margin-bottom:4px;}
+  .today-pair-num{font-family:'Space Grotesk',sans-serif; font-size:12px; font-weight:700; color:var(--amber);}
+  .today-pair-time{font-size:11.5px; color:#8FA0BC;}
+  .today-live-dot{width:6px; height:6px; border-radius:50%; background:var(--amber); margin-left:auto;}
 
   [data-view="students"] .teacher-only{display:none;}
   [data-view="teachers"] .student-only{display:none;}
@@ -331,6 +341,29 @@ const PAIR_TIMES = {
 function toMinutes(t){ const [h,m] = t.split(':').map(Number); return h*60+m; }
 function escapeHtml(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+// Academic year always starts on a "чисельник" (numerator) week, beginning
+// September 1st. Weeks alternate from there — this figures out which one
+// the current calendar week falls on.
+function mondayOf(d){
+  const dow = d.getDay();
+  const diff = dow === 0 ? 6 : dow - 1;
+  const m = new Date(d);
+  m.setDate(d.getDate() - diff);
+  m.setHours(0,0,0,0);
+  return m;
+}
+function academicYearStartMonday(d){
+  const year = d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1;
+  return mondayOf(new Date(year, 8, 1));
+}
+function getCurrentWeekParity(){
+  const now = new Date();
+  const ref = academicYearStartMonday(now);
+  const thisMonday = mondayOf(now);
+  const weeksSince = Math.round((thisMonday - ref) / (7*24*60*60*1000));
+  return weeksSince % 2 === 0 ? 'numerator' : 'denominator';
+}
+
 let _scheduleCache = null;
 async function getScheduleData(){
   if(_scheduleCache) return _scheduleCache;
@@ -370,25 +403,37 @@ function entryMatchesTeacherQuery(it, q){
   return false;
 }
 
-function renderTodayEntry(it, isStudent, badgeClass, badgeText){
-  const who = isStudent ? teacherText(it) : it.group;
+function renderWeekBlock(block, tagClass, tagLabel, isCurrentWeek, isStudent, group){
+  if(!block) return '';
+  const t = teacherText(block);
+  const currentMark = isCurrentWeek ? ` <span class="today-current-mark">• зараз</span>` : '';
+  return `<div class="today-week-block ${isCurrentWeek ? 'is-current' : 'is-other'}">
+    <span class="today-week-tag ${tagClass}">${tagLabel}${currentMark}</span>
+    <div class="today-subject">${escapeHtml(block.subject||'—')}</div>
+    <div class="today-meta">${isStudent ? escapeHtml(t) : escapeHtml(group||'')}</div>
+  </div>`;
+}
+
+function renderDayPairRow(it, isStudent, isCurrentPair){
+  const parity = getCurrentWeekParity();
+  let body;
   if(it.numerator || it.denominator){
-    let inner = '';
-    if(it.numerator){
-      inner += `<div class="today-week-block"><span class="today-week-tag num">ЧИСЕЛЬНИК</span>
-        <div class="today-subject">${escapeHtml(it.numerator.subject||'—')}</div>
-        <div class="today-meta">${isStudent ? escapeHtml(teacherText(it.numerator)) : escapeHtml(it.group||'')}</div></div>`;
-    }
-    if(it.denominator){
-      inner += `<div class="today-week-block"><span class="today-week-tag denom">ЗНАМЕННИК</span>
-        <div class="today-subject">${escapeHtml(it.denominator.subject||'—')}</div>
-        <div class="today-meta">${isStudent ? escapeHtml(teacherText(it.denominator)) : escapeHtml(it.group||'')}</div></div>`;
-    }
-    return `<div class="today-badge ${badgeClass}">${badgeText}</div>${inner}`;
+    body = renderWeekBlock(it.numerator, 'num', 'ЧИСЕЛЬНИК', parity === 'numerator', isStudent, it.group)
+         + renderWeekBlock(it.denominator, 'denom', 'ЗНАМЕННИК', parity === 'denominator', isStudent, it.group);
+  }else{
+    const t = teacherText(it);
+    body = `<div class="today-subject">${escapeHtml(it.subject||'—')}</div>
+      <div class="today-meta">${isStudent ? escapeHtml(t) : escapeHtml(it.group||'')}</div>`;
   }
-  return `<div class="today-badge ${badgeClass}">${badgeText}</div>
-    <div class="today-subject">${escapeHtml(it.subject || '—')}</div>
-    <div class="today-meta">${escapeHtml(who||'')}</div>`;
+  const time = PAIR_TIMES[it.pair] ? `${PAIR_TIMES[it.pair][0]}–${PAIR_TIMES[it.pair][1]}` : '';
+  return `<div class="today-row${isCurrentPair ? ' current' : ''}">
+    <div class="today-row-head">
+      <span class="today-pair-num">${escapeHtml(it.pair)} пара</span>
+      <span class="today-pair-time">${time}</span>
+      ${isCurrentPair ? '<span class="today-live-dot"></span>' : ''}
+    </div>
+    ${body}
+  </div>`;
 }
 
 function findNextDayItem(mine, todayName){
@@ -407,34 +452,30 @@ function findNextDayItem(mine, todayName){
 
 function renderTodaySchedule(todays, isStudent, mine, todayName){
   const el = document.getElementById('today-widget');
+  const ctaHref = `schedule.html?view=${isStudent?'student':'teacher'}`;
+
+  if(!todays.length){
+    const ahead = findNextDayItem(mine, todayName);
+    let html = `<div class="today-empty-text">Сьогодні пар немає.</div>`;
+    if(ahead){
+      html += `<div class="today-empty-text" style="margin-top:8px;">Найближчі — ${ahead.day}:</div>` + renderDayPairRow(ahead.item, isStudent, false);
+    }
+    html += `<a class="today-cta" href="${ctaHref}">Весь розклад →</a>`;
+    el.innerHTML = `<div class="today-card">${html}</div>`;
+    return;
+  }
+
   const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
-  let current = null, next = null;
+  let rows = '';
   for(const it of todays){
     const t = PAIR_TIMES[it.pair];
-    if(!t) continue;
-    const [s,e] = t;
-    if(nowMin >= toMinutes(s) && nowMin < toMinutes(e)){ current = {...it, start:s, end:e}; break; }
-    if(nowMin < toMinutes(s) && !next){ next = {...it, start:s, end:e}; }
-  }
-
-  let html = '';
-  let ctaLabel = 'Весь розклад на сьогодні →';
-
-  if(current){
-    html = renderTodayEntry(current, isStudent, 'live', `Зараз • ${escapeHtml(current.pair)} пара, до ${current.end}`);
-  }else if(next){
-    html = renderTodayEntry(next, isStudent, '', `Наступна • ${escapeHtml(next.pair)} пара, з ${next.start}`);
-  }else{
-    const ahead = findNextDayItem(mine, todayName);
-    if(ahead){
-      html = `<div class="today-empty-text">${todays.length ? 'Пари на сьогодні закінчились.' : 'Сьогодні пар немає.'}</div>`
-        + renderTodayEntry(ahead.item, isStudent, '', `Далі • ${ahead.day}, ${escapeHtml(ahead.item.pair)} пара`);
-      ctaLabel = 'Весь розклад →';
-    }else{
-      html = `<div class="today-badge">На сьогодні все</div><div class="today-empty-text">Пари на сьогодні закінчились.</div>`;
+    let isCurrent = false;
+    if(t){
+      isCurrent = nowMin >= toMinutes(t[0]) && nowMin < toMinutes(t[1]);
     }
+    rows += renderDayPairRow(it, isStudent, isCurrent);
   }
-  html += `<a class="today-cta" href="schedule.html?view=${isStudent?'student':'teacher'}">${ctaLabel}</a>`;
+  const html = rows + `<a class="today-cta" href="${ctaHref}">Весь розклад →</a>`;
   el.innerHTML = `<div class="today-card">${html}</div>`;
 }
 
