@@ -17,11 +17,13 @@
     --navy:#16233F; --navy-deep:#0F1A30; --sky:#3E7CB1; --amber:#E2A63B;
     --bg:#F3F5F8; --card:#FFFFFF; --text:#20293B; --muted:#6B7686; --line:#E4E8EE;
     --input-bg:#FAFBFC; --ico-bg:#EAF1F8;
+    --warn-bg:#FFF1EE; --warn-line:#F5C9C0; --warn-text:#8A3A2B;
   }
   @media (prefers-color-scheme: dark){
     :root{
       --bg:#0E141F; --card:#1A2233; --text:#E8ECF4; --muted:#8B96AC; --line:#2A3346;
       --input-bg:#212B40; --ico-bg:#22304A;
+      --warn-bg:#3A2420; --warn-line:#5A3A33; --warn-text:#FFB4A6;
     }
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
@@ -79,6 +81,13 @@
   .week-block.other-week{opacity:0.55;}
   .current-mark{color:var(--sky); font-weight:800;}
 
+  .subs-banner{
+    background:var(--warn-bg); border:1px solid var(--warn-line); color:var(--warn-text);
+    border-radius:14px; padding:12px 14px; margin-bottom:16px; font-size:13.5px; line-height:1.5;
+  }
+  .subs-title{font-family:'Space Grotesk',sans-serif; font-weight:700; margin-bottom:4px;}
+  .subs-row b{font-weight:600;}
+  .stamp{font-size:12px; color:var(--muted); text-align:center; margin:8px 0 0;}
   .note{
     font-size:12px; color:var(--muted); text-align:center; margin:18px auto 0;
     max-width:460px; line-height:1.5; padding:0 16px;
@@ -114,6 +123,8 @@
 
   <div id="results"></div>
 
+  <p class="stamp" id="stamp"></p>
+
   <p class="note">
     Дані підтягуються напряму з <a href="https://docs.google.com/spreadsheets/d/19_wG64eTHtf2GdlMRrwzRN9Ki9fk9gVlbZCdo8QkZtw/edit?gid=1411063760" target="_blank" rel="noopener">оригінальної таблиці розкладу</a> через сервіс, який коректно розпізнає предмет і викладача в кожній комірці.
   </p>
@@ -145,8 +156,82 @@ function getCurrentWeekParity(){
   return weeksSince % 2 === 0 ? 'numerator' : 'denominator';
 }
 
-let scheduleData = null; // {groups: [...], schedule: [{day,pair,group,subject,teacher,extra}]}
+let scheduleData = null; // {groups: [...], schedule: [...], substitutions: {...}}
 let mode = null;
+let dataTs = 0;          // when scheduleData was fetched
+let refreshing = false;  // background refresh in flight
+let offline = false;     // last refresh failed (showing saved data)
+let uiReady = false;     // event listeners attached
+let knownTeachers = [];
+
+const CACHE_KEY = 'zac-schedule-cache';   // shared with the home page
+
+function pad2(n){ return (n < 10 ? '0' : '') + n; }
+function toISODate(d){ return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()); }
+
+function loadCache(){
+  try{
+    const raw = localStorage.getItem(CACHE_KEY);
+    if(!raw) return null;
+    const obj = JSON.parse(raw);
+    if(obj && obj.data && Array.isArray(obj.data.schedule) && Array.isArray(obj.data.groups) && obj.data.groups.length) return obj;
+  }catch(e){}
+  return null;
+}
+function saveCache(data){
+  try{ localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data: data })); }catch(e){}
+}
+async function fetchScheduleData(){
+  const res = await fetch(API_URL);
+  if(!res.ok) throw new Error('http ' + res.status);
+  const data = await res.json();
+  if(data.error) throw new Error(data.error);
+  if(!Array.isArray(data.schedule) || !Array.isArray(data.groups) || !data.groups.length) throw new Error('bad data');
+  return data;
+}
+
+// Saved groups / teachers (the home page shows them as quick-switch chips)
+function favsKey(kind){ return kind === 'student' ? 'zac-favs-student' : 'zac-favs-teacher'; }
+function activeKey(kind){ return kind === 'student' ? 'zac-schedule-group' : 'zac-schedule-teacher'; }
+function getFavs(kind){
+  let favs = [];
+  try{ favs = JSON.parse(localStorage.getItem(favsKey(kind)) || '[]'); }catch(e){}
+  if(!Array.isArray(favs)) favs = [];
+  const active = localStorage.getItem(activeKey(kind));
+  if(active && !favs.includes(active)) favs.unshift(active);
+  return favs;
+}
+function addFav(kind, value){
+  if(!value) return;
+  const favs = getFavs(kind);
+  if(!favs.includes(value)) favs.push(value);
+  while(favs.length > 6) favs.shift();
+  try{ localStorage.setItem(favsKey(kind), JSON.stringify(favs)); }catch(e){}
+}
+
+function updateStamp(){
+  const el = document.getElementById('stamp');
+  if(!el) return;
+  if(!dataTs){ el.textContent = ''; return; }
+  const when = new Date(dataTs);
+  const hhmm = pad2(when.getHours()) + ':' + pad2(when.getMinutes());
+  if(refreshing) el.textContent = 'Дані від ' + hhmm + ' · оновлюю…';
+  else if(offline) el.textContent = 'Без мережі · дані від ' + hhmm;
+  else el.textContent = (Date.now() - dataTs) < 60000 ? 'Оновлено щойно' : 'Оновлено о ' + hhmm;
+}
+
+// Substitutions (заміни) for the selected group, shown above its schedule
+function subsBannerFor(group){
+  const s = scheduleData && scheduleData.substitutions;
+  if(!s || !Array.isArray(s.rows)) return '';
+  if(s.date && s.date < toISODate(new Date())) return '';   // already in the past
+  const rows = s.rows.filter(r => r.group === group).sort((a,b) => Number(a.pair) - Number(b.pair));
+  if(!rows.length) return '';
+  const label = s.dateLabel ? s.dateLabel.toLowerCase() : '';
+  return `<div class="subs-banner"><div class="subs-title">Заміни${label ? ': ' + escapeHtml(label) : ''}</div>`
+    + rows.map(r => `<div class="subs-row">${escapeHtml(r.pair)} пара — <b>${escapeHtml(r.subject||'—')}</b>${r.room ? ', ауд. ' + escapeHtml(r.room) : ''}</div>`).join('')
+    + `</div>`;
+}
 
 function setMode(m){
   mode = m;
@@ -163,8 +248,11 @@ function refreshResults(){
   if(!scheduleData){ results.innerHTML = `<p class="status">Завантажую розклад…</p>`; return; }
   if(mode === 'student'){
     const groupSelect = document.getElementById('groupSelect');
-    if(groupSelect.value) renderList(getGroupSchedule(groupSelect.value), {emptyText:'У цієї групи немає занять у знайденому розкладі.'});
-    else results.innerHTML = `<p class="status">Оберіть групу вище.</p>`;
+    if(groupSelect.value){
+      renderList(getGroupSchedule(groupSelect.value), {emptyText:'У цієї групи немає занять у знайденому розкладі.'});
+      const banner = subsBannerFor(groupSelect.value);
+      if(banner) results.insertAdjacentHTML('afterbegin', banner);
+    }else results.innerHTML = `<p class="status">Оберіть групу вище.</p>`;
   }else if(mode === 'teacher'){
     const teacherInput = document.getElementById('teacherInput');
     if(teacherInput.value) renderList(searchTeacher(teacherInput.value), {emptyText:'Не знайшов збігів — перевірте написання прізвища.'});
@@ -275,48 +363,77 @@ function escapeHtml(s){
   return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-async function loadSchedule(){
-  const results = document.getElementById('results');
-  results.innerHTML = `<p class="status">Завантажую розклад…</p>`;
-  try{
-    const res = await fetch(API_URL);
-    if(!res.ok) throw new Error('http ' + res.status);
-    scheduleData = await res.json();
-    if(scheduleData.error) throw new Error(scheduleData.error);
-    if(!scheduleData.groups || !scheduleData.groups.length) throw new Error('groups not found');
+function applyData(data){
+  scheduleData = data;
+  const groupSelect = document.getElementById('groupSelect');
+  const teacherInput = document.getElementById('teacherInput');
+  const teacherList = document.getElementById('teacherList');
 
-    const groupSelect = document.getElementById('groupSelect');
-    groupSelect.innerHTML = scheduleData.groups.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
-    const savedGroup = localStorage.getItem('zac-schedule-group');
-    if(savedGroup && scheduleData.groups.includes(savedGroup)) groupSelect.value = savedGroup;
-    if(savedGroup && scheduleData.groups.includes(savedGroup)) tagOneSignal('group', savedGroup);
+  // keep what the user has selected when fresh data replaces cached data
+  const savedGroup = uiReady ? groupSelect.value : localStorage.getItem('zac-schedule-group');
+  groupSelect.innerHTML = data.groups.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
+  if(savedGroup && data.groups.includes(savedGroup)) groupSelect.value = savedGroup;
+
+  knownTeachers = collectTeacherNames();
+  teacherList.innerHTML = knownTeachers.map(n => `<option value="${escapeHtml(n)}">`).join('');
+
+  if(!uiReady){
+    const savedTeacher = localStorage.getItem('zac-schedule-teacher');
+    if(savedTeacher) teacherInput.value = savedTeacher;
+    if(savedGroup && data.groups.includes(savedGroup)) tagOneSignal('group', savedGroup);
+    if(savedTeacher && knownTeachers.includes(savedTeacher)) tagOneSignal('teacher', savedTeacher);
+
     groupSelect.addEventListener('change', () => {
-      localStorage.setItem('zac-schedule-group', groupSelect.value);
-      tagOneSignal('group', groupSelect.value);
+      const v = groupSelect.value;
+      addFav('student', v);                       // first: keeps the previously saved group in the list
+      localStorage.setItem('zac-schedule-group', v);
+      tagOneSignal('group', v);
       refreshResults();
     });
 
-    const knownTeachers = collectTeacherNames();
-    const teacherList = document.getElementById('teacherList');
-    teacherList.innerHTML = knownTeachers.map(n => `<option value="${escapeHtml(n)}">`).join('');
-    const teacherInput = document.getElementById('teacherInput');
-    const savedTeacher = localStorage.getItem('zac-schedule-teacher');
-    if(savedTeacher) teacherInput.value = savedTeacher;
-    if(savedTeacher && knownTeachers.includes(savedTeacher)) tagOneSignal('teacher', savedTeacher);
     let debounce;
     teacherInput.addEventListener('input', () => {
       clearTimeout(debounce);
       debounce = setTimeout(() => {
-        localStorage.setItem('zac-schedule-teacher', teacherInput.value);
-        if(knownTeachers.includes(teacherInput.value)) tagOneSignal('teacher', teacherInput.value);
+        const v = teacherInput.value.trim();
+        // only a full, known surname becomes the saved teacher (not half-typed text)
+        if(knownTeachers.includes(v)){
+          addFav('teacher', v);
+          localStorage.setItem('zac-schedule-teacher', v);
+          tagOneSignal('teacher', v);
+        }
         refreshResults();
       }, 250);
     });
-
-    refreshResults();
-  }catch(err){
-    results.innerHTML = `<p class="status error">Не вдалося завантажити розклад. Перевірте інтернет-з'єднання.</p>`;
+    uiReady = true;
   }
+  refreshResults();
+}
+
+async function loadSchedule(){
+  const results = document.getElementById('results');
+  const cached = loadCache();
+  if(cached){
+    dataTs = cached.ts;
+    applyData(cached.data);          // show the last saved schedule at once
+  }else{
+    results.innerHTML = `<p class="status">Завантажую розклад…</p>`;
+  }
+  refreshing = true;
+  updateStamp();
+  try{
+    const fresh = await fetchScheduleData();
+    dataTs = Date.now();
+    offline = false;
+    saveCache(fresh);
+    refreshing = false;
+    applyData(fresh);
+  }catch(err){
+    refreshing = false;
+    offline = true;
+    if(!scheduleData) results.innerHTML = `<p class="status error">Не вдалося завантажити розклад. Перевірте інтернет-з'єднання.</p>`;
+  }
+  updateStamp();
 }
 
 // --- OneSignal push notifications ---

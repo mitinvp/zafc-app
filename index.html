@@ -130,6 +130,47 @@
   .today-pair-time{font-size:11.5px; color:#8FA0BC;}
   .today-live-dot{width:6px; height:6px; border-radius:50%; background:var(--amber); margin-left:auto;}
 
+  .chips{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;}
+  .chip{
+    font:inherit; font-size:12px; font-weight:600; color:#C7D3E5; background:rgba(255,255,255,0.08);
+    border:1px solid transparent; border-radius:999px; padding:5px 10px; cursor:pointer;
+    -webkit-appearance:none; appearance:none; text-decoration:none; display:inline-flex; align-items:center; gap:6px;
+  }
+  .chip.active{background:var(--amber); color:var(--navy-deep);}
+  .chip-add{color:var(--amber); border-color:rgba(226,166,58,0.4); padding:5px 12px;}
+  .chip-x{opacity:.7; font-size:14px; line-height:1; padding:0 2px;}
+
+  .wtabs{display:flex; gap:4px; background:rgba(255,255,255,0.06); border-radius:10px; padding:3px; margin-bottom:14px;}
+  .wtab{
+    flex:1; font:inherit; font-size:13px; font-weight:600; color:#C7D3E5; background:none; border:none;
+    border-radius:8px; padding:8px 0; cursor:pointer; -webkit-appearance:none; appearance:none; outline:none;
+  }
+  .wtab.active{background:rgba(255,255,255,0.14); color:#fff;}
+  .wdot{display:inline-block; width:6px; height:6px; border-radius:50%; background:#FF9C8A; margin-left:5px; vertical-align:middle;}
+
+  .wfoot{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px;}
+  .wfoot .today-cta{margin-top:0;}
+  .wstamp{font-size:11.5px; color:#8FA0BC;}
+
+  .today-sub-tag{
+    display:inline-block; font-size:10px; font-weight:700; letter-spacing:.02em; padding:2px 8px;
+    border-radius:6px; margin-bottom:3px; background:rgba(255,120,100,0.2); color:#FF9C8A;
+  }
+  .today-was{font-size:12px; color:#8FA0BC; text-decoration:line-through; margin-top:3px;}
+  .today-sub-note{font-size:12px; color:#FF9C8A; margin-top:4px;}
+
+  .wk-note{font-size:12px; color:#8FA0BC; margin-bottom:8px;}
+  .wk-day{padding:8px 0; border-top:1px solid rgba(255,255,255,0.08);}
+  .wk-note + .wk-day{border-top:none; padding-top:0;}
+  .wk-day-name{font-family:'Space Grotesk',sans-serif; font-size:12px; font-weight:700; color:var(--amber); margin-bottom:4px;}
+  .wk-day.today .wk-day-name::after{content:' · сьогодні'; color:#C7D3E5; font-weight:600;}
+  .wk-row{display:flex; gap:8px; font-size:13.5px; line-height:1.4; padding:2px 0;}
+  .wk-pair{min-width:14px; color:#8FA0BC; font-weight:600;}
+  .wk-subj{font-weight:600;}
+  .wk-meta{color:#B9C6DA;}
+  .wk-tag{font-size:10px; font-weight:700; padding:1px 6px; border-radius:5px; background:rgba(255,255,255,0.1); color:#C7D3E5;}
+  .wk-sub{font-size:10px; font-weight:700; padding:1px 6px; border-radius:5px; background:rgba(255,120,100,0.2); color:#FF9C8A;}
+
   [data-view="students"] .teacher-only{display:none;}
   [data-view="teachers"] .student-only{display:none;}
 </style>
@@ -304,6 +345,11 @@
     <div class="group">
       <h2>Загальне</h2>
       <div class="list">
+        <a class="item" href="install.html">
+          <div class="ico">📲</div>
+          <div class="item-text"><div class="t">QR для встановлення</div><div class="s">показати студентам на екрані</div></div>
+          <div class="chev">›</div>
+        </a>
         <a class="item" href="http://zac.org.ua/managment" target="_blank" rel="noopener">
           <div class="ico">🏛️</div>
           <div class="item-text"><div class="t">Керівництво коледжу</div></div>
@@ -331,19 +377,27 @@
 
 <script>
 const SCHEDULE_API = 'https://script.google.com/macros/s/AKfycbySrl-VB-L_2yE_Q0EOj317yJGDIV2AD49tVa1WE_lO5KSGWGiqMYADmPRKkG0Ks72s/exec';
+const SUBS_DOC_URL = 'https://docs.google.com/document/d/15sTjEGGQPuYWYlCcPlbZNSkSwoC1Aubdu5dAVtF1hzs/edit?tab=t.0';
+const CACHE_KEY = 'zac-schedule-cache';
 const DAY_NAMES = ['НЕДІЛЯ','ПОНЕДІЛОК','ВІВТОРОК','СЕРЕДА','ЧЕТВЕР',"П'ЯТНИЦЯ",'СУБОТА'];
 const WEEK_ORDER = ['ПОНЕДІЛОК','ВІВТОРОК','СЕРЕДА','ЧЕТВЕР',"П'ЯТНИЦЯ",'СУБОТА'];
+const DAY_TITLES = {'ПОНЕДІЛОК':'Понеділок','ВІВТОРОК':'Вівторок','СЕРЕДА':'Середа','ЧЕТВЕР':'Четвер',"П'ЯТНИЦЯ":"П'ятниця",'СУБОТА':'Субота','НЕДІЛЯ':'Неділя'};
 const PAIR_TIMES = {
   '1':['9:00','10:20'], '2':['10:40','12:00'], '3':['12:30','13:50'],
   '4':['14:10','15:30'], '5':['15:40','17:00'], '6':['17:10','18:30'], '7':['18:40','20:00']
 };
 
+// ---------- small helpers ----------
 function toMinutes(t){ const [h,m] = t.split(':').map(Number); return h*60+m; }
 function escapeHtml(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function pad2(n){ return (n < 10 ? '0' : '') + n; }
+function toISODate(d){ return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()); }
+function addDays(d, n){ const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+// The sheet may spell П'ЯТНИЦЯ with different apostrophes — compare without them.
+function normDay(s){ return (s||'').toString().replace(/['’ʼ`]/g,'').toUpperCase(); }
 
 // Academic year always starts on a "чисельник" (numerator) week, beginning
-// September 1st. Weeks alternate from there — this figures out which one
-// the current calendar week falls on.
+// September 1st. Weeks alternate from there.
 function mondayOf(d){
   const dow = d.getDay();
   const diff = dow === 0 ? 6 : dow - 1;
@@ -356,39 +410,73 @@ function academicYearStartMonday(d){
   const year = d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1;
   return mondayOf(new Date(year, 8, 1));
 }
-function getCurrentWeekParity(){
-  const now = new Date();
-  const ref = academicYearStartMonday(now);
-  const thisMonday = mondayOf(now);
-  const weeksSince = Math.round((thisMonday - ref) / (7*24*60*60*1000));
+function getWeekParity(date){
+  const ref = academicYearStartMonday(date);
+  const weeksSince = Math.round((mondayOf(date) - ref) / (7*24*60*60*1000));
   return weeksSince % 2 === 0 ? 'numerator' : 'denominator';
 }
 
-let _scheduleCache = null;
-async function getScheduleData(){
-  if(_scheduleCache) return _scheduleCache;
+// ---------- state ----------
+let scheduleData = null;   // latest schedule (from cache first, then network)
+let dataTs = 0;            // when scheduleData was fetched
+let refreshing = false;    // background refresh in flight
+let offline = false;       // last refresh failed (showing saved data)
+let loadFailed = false;    // nothing to show at all
+let activeTab = 'today';   // 'today' | 'tomorrow' | 'week'
+let renderedFavs = [];     // favourites as rendered, for click handlers
+
+// ---------- cache (shared with schedule.html) ----------
+function loadCache(){
+  try{
+    const raw = localStorage.getItem(CACHE_KEY);
+    if(!raw) return null;
+    const obj = JSON.parse(raw);
+    if(obj && obj.data && Array.isArray(obj.data.schedule)) return obj;
+  }catch(e){}
+  return null;
+}
+function saveCache(data){
+  try{ localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data: data })); }catch(e){}
+}
+async function fetchScheduleData(){
   const res = await fetch(SCHEDULE_API);
   if(!res.ok) throw new Error('http ' + res.status);
   const data = await res.json();
   if(data.error) throw new Error(data.error);
-  _scheduleCache = data;
+  if(!Array.isArray(data.schedule)) throw new Error('bad data');
   return data;
 }
 
-function renderTodayEmpty(isStudent){
-  document.getElementById('today-widget').innerHTML = `
-    <div class="today-card">
-      <div class="today-empty-text">Обери ${isStudent ? 'групу' : 'своє прізвище'} в розкладі — і тут з'являться сьогоднішні пари.</div>
-      <a class="today-cta" href="schedule.html?view=${isStudent ? 'student' : 'teacher'}">Обрати →</a>
-    </div>`;
+// ---------- saved groups / teachers ----------
+function favsKey(kind){ return kind === 'student' ? 'zac-favs-student' : 'zac-favs-teacher'; }
+function activeKey(kind){ return kind === 'student' ? 'zac-schedule-group' : 'zac-schedule-teacher'; }
+function currentKind(){ return document.body.getAttribute('data-view') === 'students' ? 'student' : 'teacher'; }
+function getFavs(kind){
+  let favs = [];
+  try{ favs = JSON.parse(localStorage.getItem(favsKey(kind)) || '[]'); }catch(e){}
+  if(!Array.isArray(favs)) favs = [];
+  const active = localStorage.getItem(activeKey(kind));
+  if(active && !favs.includes(active)) favs.unshift(active);   // migrate the old single saved value
+  return favs;
+}
+function saveFavs(kind, favs){
+  try{ localStorage.setItem(favsKey(kind), JSON.stringify(favs.slice(0, 6))); }catch(e){}
+}
+function setActive(kind, value){ try{ localStorage.setItem(activeKey(kind), value); }catch(e){} }
+function removeFav(kind, value){
+  const favs = getFavs(kind).filter(v => v !== value);
+  saveFavs(kind, favs);
+  if(localStorage.getItem(activeKey(kind)) === value){
+    if(favs.length) setActive(kind, favs[0]); else localStorage.removeItem(activeKey(kind));
+  }
 }
 
+// ---------- matching ----------
 function teacherText(block){
   if(!block) return '';
   if(block.teachers && block.teachers.length) return block.teachers.join(', ');
   return block.teacher || '';
 }
-
 function entryMatchesTeacherQuery(it, q){
   if((it.teacher||'').toLowerCase().includes(q)) return true;
   if((it.teachers||[]).some(t => t.toLowerCase().includes(q))) return true;
@@ -402,33 +490,100 @@ function entryMatchesTeacherQuery(it, q){
   }
   return false;
 }
+function entriesForDay(mine, dayName){
+  const nd = normDay(dayName);
+  return mine.filter(it => normDay(it.day) === nd).sort((a,b) => Number(a.pair) - Number(b.pair));
+}
+// The block of an entry that actually applies in a week of the given parity.
+function activeBlock(it, parity){
+  if(it.numerator || it.denominator){
+    const blk = parity === 'numerator' ? it.numerator : it.denominator;
+    if(blk) return blk;
+    return it.subject ? it : null;
+  }
+  return it;
+}
+// Substitutions (заміни) for one group on one date: { pairNumber: row }
+function subsFor(group, date){
+  const map = {};
+  const s = scheduleData && scheduleData.substitutions;
+  if(!s || !s.date || !Array.isArray(s.rows) || s.date !== toISODate(date)) return map;
+  s.rows.forEach(r => { if(r.group === group) map[String(r.pair)] = r; });
+  return map;
+}
+function subsByGroupPair(date){
+  const m = {};
+  const s = scheduleData && scheduleData.substitutions;
+  if(!s || !s.date || !Array.isArray(s.rows) || s.date !== toISODate(date)) return m;
+  s.rows.forEach(r => { m[r.group + '|' + String(r.pair)] = r; });
+  return m;
+}
+function subsGroupCount(date){
+  const s = scheduleData && scheduleData.substitutions;
+  if(!s || !s.date || !Array.isArray(s.rows) || s.date !== toISODate(date)) return 0;
+  return new Set(s.rows.map(r => r.group)).size;
+}
+function collectByPair(entries, subs){
+  const byPair = {};
+  entries.forEach(it => {
+    const p = String(it.pair);
+    (byPair[p] = byPair[p] || { items: [], sub: null }).items.push(it);
+  });
+  Object.keys(subs).forEach(p => {
+    (byPair[p] = byPair[p] || { items: [], sub: null }).sub = subs[p];
+  });
+  return byPair;
+}
+function sortedPairs(byPair){ return Object.keys(byPair).sort((a,b) => Number(a) - Number(b)); }
+function findNextDayWithPairs(mine, date){
+  for(let offset = 1; offset <= 7; offset++){
+    const d = addDays(date, offset);
+    const dayName = DAY_NAMES[d.getDay()];
+    const items = entriesForDay(mine, dayName);
+    if(items.length) return { date: d, dayName: dayName, items: items };
+  }
+  return null;
+}
 
-function renderWeekBlock(block, tagClass, tagLabel, isCurrentWeek, isStudent, group){
+// ---------- rendering ----------
+function renderWeekBlock(block, tagClass, tagLabel, isActiveWeek, isStudent, group, mark){
   if(!block) return '';
   const t = teacherText(block);
-  const currentMark = isCurrentWeek ? ` <span class="today-current-mark">• зараз</span>` : '';
-  return `<div class="today-week-block ${isCurrentWeek ? 'is-current' : 'is-other'}">
-    <span class="today-week-tag ${tagClass}">${tagLabel}${currentMark}</span>
+  const m = isActiveWeek ? ` <span class="today-current-mark">• ${mark}</span>` : '';
+  return `<div class="today-week-block ${isActiveWeek ? 'is-current' : 'is-other'}">
+    <span class="today-week-tag ${tagClass}">${tagLabel}${m}</span>
     <div class="today-subject">${escapeHtml(block.subject||'—')}</div>
     <div class="today-meta">${isStudent ? escapeHtml(t) : escapeHtml(group||'')}</div>
   </div>`;
 }
 
-function renderDayPairRow(it, isStudent, isCurrentPair){
-  const parity = getCurrentWeekParity();
-  let body;
-  if(it.numerator || it.denominator){
-    body = renderWeekBlock(it.numerator, 'num', 'ЧИСЕЛЬНИК', parity === 'numerator', isStudent, it.group)
-         + renderWeekBlock(it.denominator, 'denom', 'ЗНАМЕННИК', parity === 'denominator', isStudent, it.group);
-  }else{
-    const t = teacherText(it);
+function renderPairRow(pair, it, sub, isStudent, isCurrentPair, parity, mark, subNote){
+  let body = '';
+  if(sub){
+    const was = it ? activeBlock(it, parity) : null;
+    body = `<div class="today-sub-tag">ЗАМІНА</div>
+      <div class="today-subject">${escapeHtml(sub.subject||'—')}</div>
+      ${sub.room ? `<div class="today-meta">ауд. ${escapeHtml(sub.room)}</div>` : ''}
+      ${was && was.subject ? `<div class="today-was">було: ${escapeHtml(was.subject)}</div>` : ''}`;
+  }else if(it && (it.numerator || it.denominator)){
+    body = renderWeekBlock(it.numerator, 'num', 'ЧИСЕЛЬНИК', parity === 'numerator', isStudent, it.group, mark)
+         + renderWeekBlock(it.denominator, 'denom', 'ЗНАМЕННИК', parity === 'denominator', isStudent, it.group, mark);
+    if(it.subject){
+      body += `<div class="today-week-block"><div class="today-subject">${escapeHtml(it.subject)}</div>
+        <div class="today-meta">${isStudent ? escapeHtml(teacherText(it)) : escapeHtml(it.group||'')}</div></div>`;
+    }
+  }else if(it){
     body = `<div class="today-subject">${escapeHtml(it.subject||'—')}</div>
-      <div class="today-meta">${isStudent ? escapeHtml(t) : escapeHtml(it.group||'')}</div>`;
+      <div class="today-meta">${isStudent ? escapeHtml(teacherText(it)) : escapeHtml(it.group||'')}</div>`;
   }
-  const time = PAIR_TIMES[it.pair] ? `${PAIR_TIMES[it.pair][0]}–${PAIR_TIMES[it.pair][1]}` : '';
+  if(subNote){
+    body += `<div class="today-sub-note">⚠ У цій групі на цю пару є заміна: ${escapeHtml(subNote.subject||'')}</div>`;
+  }
+  const t = PAIR_TIMES[pair];
+  const time = t ? `${t[0]}–${t[1]}` : '';
   return `<div class="today-row${isCurrentPair ? ' current' : ''}">
     <div class="today-row-head">
-      <span class="today-pair-num">${escapeHtml(it.pair)} пара</span>
+      <span class="today-pair-num">${escapeHtml(pair)} пара</span>
       <span class="today-pair-time">${time}</span>
       ${isCurrentPair ? '<span class="today-live-dot"></span>' : ''}
     </div>
@@ -436,78 +591,221 @@ function renderDayPairRow(it, isStudent, isCurrentPair){
   </div>`;
 }
 
-function findNextDayItem(mine, todayName){
-  const todayIdx = WEEK_ORDER.indexOf(todayName);
-  if(todayIdx === -1) return null;
-  for(let offset = 1; offset <= 6; offset++){
-    const day = WEEK_ORDER[(todayIdx + offset) % WEEK_ORDER.length];
-    const dayItems = mine.filter(it => it.day === day);
-    if(dayItems.length){
-      dayItems.sort((a,b) => Number(a.pair) - Number(b.pair));
-      return { day, item: dayItems[0] };
-    }
-  }
-  return null;
+function substitutionsLinkForTeacher(date){
+  const n = subsGroupCount(date);
+  if(!n) return '';
+  const word = (n % 10 === 1 && n % 100 !== 11) ? 'групі' : 'групах';
+  return `<a class="today-cta" href="${SUBS_DOC_URL}" target="_blank" rel="noopener">Є заміни в ${n} ${word} — переглянути →</a><br>`;
 }
 
-function renderTodaySchedule(todays, isStudent, mine, todayName){
-  const el = document.getElementById('today-widget');
-  const ctaHref = `schedule.html?view=${isStudent?'student':'teacher'}`;
+function renderDayBody(mine, isStudent, active, date, mode){
+  const dayName = DAY_NAMES[date.getDay()];
+  const parity = getWeekParity(date);
+  const entries = entriesForDay(mine, dayName);
+  const subs = isStudent ? subsFor(active, date) : {};
+  const byPair = collectByPair(entries, subs);
+  const pairs = sortedPairs(byPair);
+  const mark = mode === 'today' ? 'зараз' : 'завтра';
+  const extra = isStudent ? '' : substitutionsLinkForTeacher(date);
+  const teacherSubs = isStudent ? {} : subsByGroupPair(date);
 
-  if(!todays.length){
-    const ahead = findNextDayItem(mine, todayName);
-    let html = `<div class="today-empty-text">Сьогодні пар немає.</div>`;
+  if(!pairs.length){
+    let html = `<div class="today-empty-text">${mode === 'today' ? 'Сьогодні' : 'Завтра'} пар немає.</div>`;
+    const ahead = findNextDayWithPairs(mine, date);
     if(ahead){
-      html += `<div class="today-empty-text" style="margin-top:8px;">Найближчі — ${ahead.day}:</div>` + renderDayPairRow(ahead.item, isStudent, false);
+      const it = ahead.items[0];
+      html += `<div class="today-empty-text" style="margin:8px 0 10px;">Найближчі — ${DAY_TITLES[ahead.dayName] || ahead.dayName}:</div>`
+        + renderPairRow(String(it.pair), it, null, isStudent, false, getWeekParity(ahead.date), 'тоді');
     }
-    html += `<a class="today-cta" href="${ctaHref}">Весь розклад →</a>`;
-    el.innerHTML = `<div class="today-card">${html}</div>`;
+    return html + extra;
+  }
+
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  let rows = '';
+  pairs.forEach(p => {
+    const t = PAIR_TIMES[p];
+    const isCurrent = mode === 'today' && !!t && nowMin >= toMinutes(t[0]) && nowMin < toMinutes(t[1]);
+    const grp = byPair[p];
+    if(grp.sub){
+      rows += renderPairRow(p, grp.items[0] || null, grp.sub, isStudent, isCurrent, parity, mark);
+    }else{
+      grp.items.forEach(it => { rows += renderPairRow(p, it, null, isStudent, isCurrent, parity, mark, teacherSubs[it.group + '|' + p] || null); });
+    }
+  });
+  return rows + extra;
+}
+
+function renderWeekBody(mine, isStudent, active){
+  const now = new Date();
+  const ref = now.getDay() === 0 ? addDays(now, 1) : now;
+  const monday = mondayOf(ref);
+  const parity = getWeekParity(monday);
+  const todayISO = toISODate(now);
+  let html = `<div class="wk-note">${now.getDay() === 0 ? 'Наступний тиждень' : 'Цей тиждень'}: ${parity === 'numerator' ? 'чисельник' : 'знаменник'}</div>`;
+  let any = false;
+
+  WEEK_ORDER.forEach((dayName, i) => {
+    const date = addDays(monday, i);
+    const entries = entriesForDay(mine, dayName);
+    const subs = isStudent ? subsFor(active, date) : {};
+    const byPair = collectByPair(entries, subs);
+    let lines = '';
+    sortedPairs(byPair).forEach(p => {
+      const grp = byPair[p];
+      if(grp.sub){
+        lines += `<div class="wk-row"><span class="wk-pair">${escapeHtml(p)}</span><span class="wk-text"><span class="wk-sub">ЗАМІНА</span> <span class="wk-subj">${escapeHtml(grp.sub.subject||'—')}</span>${grp.sub.room ? ` <span class="wk-meta">· ауд. ${escapeHtml(grp.sub.room)}</span>` : ''}</span></div>`;
+        return;
+      }
+      grp.items.forEach(it => {
+        const blk = activeBlock(it, parity);
+        if(!blk) return;   // no lesson in this week's variant
+        const split = !!(it.numerator || it.denominator);
+        const meta = isStudent ? teacherText(blk) : (it.group || '');
+        lines += `<div class="wk-row"><span class="wk-pair">${escapeHtml(p)}</span><span class="wk-text"><span class="wk-subj">${escapeHtml(blk.subject||'—')}</span>${meta ? ` <span class="wk-meta">· ${escapeHtml(meta)}</span>` : ''}${split ? ` <span class="wk-tag">${parity === 'numerator' ? 'ч' : 'з'}</span>` : ''}</span></div>`;
+      });
+    });
+    if(!lines) return;
+    any = true;
+    html += `<div class="wk-day${toISODate(date) === todayISO ? ' today' : ''}"><div class="wk-day-name">${DAY_TITLES[dayName]}</div>${lines}</div>`;
+  });
+
+  if(!any) html += `<div class="today-empty-text">На цьому тижні пар немає.</div>`;
+  return html;
+}
+
+function stampText(){
+  if(!dataTs) return '';
+  const when = new Date(dataTs);
+  const hhmm = pad2(when.getHours()) + ':' + pad2(when.getMinutes());
+  if(refreshing) return `Дані від ${hhmm} · оновлюю…`;
+  if(offline) return `Без мережі · дані від ${hhmm}`;
+  return (Date.now() - dataTs) < 60000 ? 'Оновлено щойно' : `Оновлено о ${hhmm}`;
+}
+
+function renderTodayEmpty(isStudent){
+  document.getElementById('today-widget').innerHTML = `
+    <div class="today-card">
+      <div class="today-empty-text">Обери ${isStudent ? 'групу' : 'своє прізвище'} в розкладі — і тут з'являться пари.</div>
+      <a class="today-cta" href="schedule.html?view=${isStudent ? 'student' : 'teacher'}">Обрати →</a>
+    </div>`;
+}
+
+function renderWidget(){
+  const el = document.getElementById('today-widget');
+  const isStudent = currentKind() === 'student';
+  const kind = currentKind();
+  const favs = getFavs(kind);
+  let active = localStorage.getItem(activeKey(kind));
+  if(!active || !favs.includes(active)){
+    active = favs[0] || null;
+    if(active) setActive(kind, active);
+  }
+  renderedFavs = favs;
+
+  if(!active){ renderTodayEmpty(isStudent); return; }
+  if(!scheduleData){
+    el.innerHTML = loadFailed
+      ? `<div class="today-card today-error">Не вдалося завантажити розклад. Перевір інтернет і відкрий застосунок ще раз.</div>`
+      : `<div class="today-card today-loading">Завантажую розклад…</div>`;
     return;
   }
 
-  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
-  let rows = '';
-  for(const it of todays){
-    const t = PAIR_TIMES[it.pair];
-    let isCurrent = false;
-    if(t){
-      isCurrent = nowMin >= toMinutes(t[0]) && nowMin < toMinutes(t[1]);
-    }
-    rows += renderDayPairRow(it, isStudent, isCurrent);
-  }
-  const html = rows + `<a class="today-cta" href="${ctaHref}">Весь розклад →</a>`;
-  el.innerHTML = `<div class="today-card">${html}</div>`;
+  const mine = isStudent
+    ? scheduleData.schedule.filter(it => it.group === active)
+    : scheduleData.schedule.filter(it => entryMatchesTeacherQuery(it, active.toLowerCase()));
+
+  const now = new Date();
+  const tomorrow = addDays(now, 1);
+
+  const chips = `<div class="chips">` + favs.map((f, i) =>
+    `<button class="chip${f === active ? ' active' : ''}" data-act="chip" data-i="${i}">${escapeHtml(f)}${favs.length > 1 ? `<span class="chip-x" data-act="remove" data-i="${i}" title="Прибрати">×</span>` : ''}</button>`
+  ).join('') + `<a class="chip chip-add" href="schedule.html?view=${isStudent ? 'student' : 'teacher'}">+</a></div>`;
+
+  const dotToday = isStudent && Object.keys(subsFor(active, now)).length > 0;
+  const dotTomorrow = isStudent && Object.keys(subsFor(active, tomorrow)).length > 0;
+  const tabs = `<div class="wtabs">
+    <button class="wtab${activeTab === 'today' ? ' active' : ''}" data-act="tab" data-tab="today">Сьогодні${dotToday ? '<span class="wdot"></span>' : ''}</button>
+    <button class="wtab${activeTab === 'tomorrow' ? ' active' : ''}" data-act="tab" data-tab="tomorrow">Завтра${dotTomorrow ? '<span class="wdot"></span>' : ''}</button>
+    <button class="wtab${activeTab === 'week' ? ' active' : ''}" data-act="tab" data-tab="week">Тиждень</button>
+  </div>`;
+
+  const body = activeTab === 'week'
+    ? renderWeekBody(mine, isStudent, active)
+    : renderDayBody(mine, isStudent, active, activeTab === 'today' ? now : tomorrow, activeTab);
+
+  el.innerHTML = `<div class="today-card">${chips}${tabs}<div class="wbody">${body}</div>
+    <div class="wfoot"><a class="today-cta" href="schedule.html?view=${isStudent ? 'student' : 'teacher'}">Весь розклад →</a><span class="wstamp">${stampText()}</span></div></div>`;
 }
 
-async function loadTodayWidget(){
-  const isStudent = document.body.getAttribute('data-view') === 'students';
-  const savedKey = isStudent ? localStorage.getItem('zac-schedule-group') : localStorage.getItem('zac-schedule-teacher');
-  if(!savedKey){ renderTodayEmpty(isStudent); return; }
-  document.getElementById('today-widget').innerHTML = `<div class="today-card today-loading">Завантажую сьогоднішні пари…</div>`;
+// ---------- loading: show saved data at once, refresh in the background ----------
+async function refreshData(){
+  refreshing = true;
+  renderWidget();
   try{
-    const data = await getScheduleData();
-    const mine = isStudent
-      ? data.schedule.filter(it => it.group === savedKey)
-      : data.schedule.filter(it => entryMatchesTeacherQuery(it, savedKey.toLowerCase()));
-    const todayName = DAY_NAMES[new Date().getDay()];
-    const todays = mine.filter(it => it.day === todayName).sort((a,b) => Number(a.pair) - Number(b.pair));
-    renderTodaySchedule(todays, isStudent, mine, todayName);
+    const fresh = await fetchScheduleData();
+    scheduleData = fresh;
+    dataTs = Date.now();
+    offline = false;
+    loadFailed = false;
+    saveCache(fresh);
   }catch(err){
-    document.getElementById('today-widget').innerHTML = `<div class="today-card today-error">Не вдалося завантажити сьогоднішні пари.</div>`;
+    offline = true;
+    if(!scheduleData) loadFailed = true;
   }
+  refreshing = false;
+  renderWidget();
 }
+
+function initWidget(){
+  const cached = loadCache();
+  if(cached){ scheduleData = cached.data; dataTs = cached.ts; }
+  refreshData();
+}
+
+document.getElementById('today-widget').addEventListener('click', function(e){
+  const t = e.target.closest('[data-act]');
+  if(!t) return;
+  const act = t.getAttribute('data-act');
+  const kind = currentKind();
+  if(act === 'tab'){
+    activeTab = t.getAttribute('data-tab');
+    renderWidget();
+  }else if(act === 'chip'){
+    const v = renderedFavs[Number(t.getAttribute('data-i'))];
+    if(v){ setActive(kind, v); tagOneSignal(kind, v); renderWidget(); }
+  }else if(act === 'remove'){
+    e.preventDefault();
+    const v = renderedFavs[Number(t.getAttribute('data-i'))];
+    if(v){
+      removeFav(kind, v);
+      const a = localStorage.getItem(activeKey(kind));
+      if(a) tagOneSignal(kind, a);
+      renderWidget();
+    }
+  }
+});
+
+// Re-check when the app comes back to the foreground, and keep "now" fresh.
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible'){
+    if(!dataTs || Date.now() - dataTs > 5*60*1000) refreshData(); else renderWidget();
+  }
+});
+setInterval(function(){ if(document.visibilityState === 'visible') renderWidget(); }, 60000);
 
 function setView(view){
   document.body.setAttribute('data-view', view);
   document.getElementById('tab-students').classList.toggle('active', view === 'students');
   document.getElementById('tab-teachers').classList.toggle('active', view === 'teachers');
   localStorage.setItem('zac-view', view);
-  loadTodayWidget();
+  renderWidget();
   tagOneSignalRole();
 }
 (function(){
   var saved = localStorage.getItem('zac-view');
-  if(saved) setView(saved); else loadTodayWidget();
+  if(saved) setView(saved);
+  initWidget();
 })();
 
 if('serviceWorker' in navigator){
@@ -518,6 +816,14 @@ if('serviceWorker' in navigator){
 
 // --- OneSignal push notifications ---
 window.OneSignalDeferred = window.OneSignalDeferred || [];
+
+function tagOneSignal(kind, value){
+  if(!value) return;
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  window.OneSignalDeferred.push(async function(OneSignal){
+    try{ await OneSignal.User.addTag(kind === 'student' ? 'group' : 'teacher', value); }catch(e){}
+  });
+}
 
 function tagOneSignalRole(){
   window.OneSignalDeferred = window.OneSignalDeferred || [];
