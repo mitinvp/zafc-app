@@ -220,6 +220,14 @@ function updateStamp(){
   else el.textContent = (Date.now() - dataTs) < 60000 ? 'Оновлено щойно' : 'Оновлено о ' + hhmm;
 }
 
+// In the substitutions doc "1/2" (half of the group) can arrive as "%" because of the
+// font, or as "1/2". Show it as "½" and remember that only part of the group is affected.
+function parseSubSubject(raw){
+  const m = (raw || '').match(/^\s*(?:½|1\/2|%)\s*(.*)$/);
+  if(m) return { text: ('½ ' + m[1]).trim(), partial: true };
+  return { text: (raw || '').trim(), partial: false };
+}
+
 // Substitutions (заміни) for the selected group, shown above its schedule
 function subsBannerFor(group){
   const s = scheduleData && scheduleData.substitutions;
@@ -229,7 +237,7 @@ function subsBannerFor(group){
   if(!rows.length) return '';
   const label = s.dateLabel ? s.dateLabel.toLowerCase() : '';
   return `<div class="subs-banner"><div class="subs-title">Заміни${label ? ': ' + escapeHtml(label) : ''}</div>`
-    + rows.map(r => `<div class="subs-row">${escapeHtml(r.pair)} пара — <b>${escapeHtml(r.subject||'—')}</b>${r.room ? ', ауд. ' + escapeHtml(r.room) : ''}</div>`).join('')
+    + rows.map(r => `<div class="subs-row">${escapeHtml(r.pair)} пара — <b>${escapeHtml(parseSubSubject(r.subject).text || '—')}</b>${r.room ? ', ауд. ' + escapeHtml(r.room) : ''}</div>`).join('')
     + `</div>`;
 }
 

@@ -523,6 +523,13 @@ function subsGroupCount(date){
   if(!s || !s.date || !Array.isArray(s.rows) || s.date !== toISODate(date)) return 0;
   return new Set(s.rows.map(r => r.group)).size;
 }
+// In the substitutions doc "1/2" (half of the group) can arrive as "%" because of the
+// font, or as "1/2". Show it as "½" and remember that only part of the group is affected.
+function parseSubSubject(raw){
+  const m = (raw || '').match(/^\s*(?:½|1\/2|%)\s*(.*)$/);
+  if(m) return { text: ('½ ' + m[1]).trim(), partial: true };
+  return { text: (raw || '').trim(), partial: false };
+}
 function collectByPair(entries, subs){
   const byPair = {};
   entries.forEach(it => {
@@ -561,10 +568,15 @@ function renderPairRow(pair, it, sub, isStudent, isCurrentPair, parity, mark, su
   let body = '';
   if(sub){
     const was = it ? activeBlock(it, parity) : null;
-    body = `<div class="today-sub-tag">ЗАМІНА</div>
-      <div class="today-subject">${escapeHtml(sub.subject||'—')}</div>
+    const ps = parseSubSubject(sub.subject);
+    body = `<div class="today-sub-tag">${ps.partial ? 'ЗАМІНА · ПІДГРУПА' : 'ЗАМІНА'}</div>
+      <div class="today-subject">${escapeHtml(ps.text || '—')}</div>
       ${sub.room ? `<div class="today-meta">ауд. ${escapeHtml(sub.room)}</div>` : ''}
-      ${was && was.subject ? `<div class="today-was">було: ${escapeHtml(was.subject)}</div>` : ''}`;
+      ${was && was.subject
+        ? (ps.partial
+            ? `<div class="today-meta">інша частина групи — за розкладом: ${escapeHtml(was.subject)}</div>`
+            : `<div class="today-was">було: ${escapeHtml(was.subject)}</div>`)
+        : ''}`;
   }else if(it && (it.numerator || it.denominator)){
     body = renderWeekBlock(it.numerator, 'num', 'ЧИСЕЛЬНИК', parity === 'numerator', isStudent, it.group, mark)
          + renderWeekBlock(it.denominator, 'denom', 'ЗНАМЕННИК', parity === 'denominator', isStudent, it.group, mark);
@@ -577,7 +589,7 @@ function renderPairRow(pair, it, sub, isStudent, isCurrentPair, parity, mark, su
       <div class="today-meta">${isStudent ? escapeHtml(teacherText(it)) : escapeHtml(it.group||'')}</div>`;
   }
   if(subNote){
-    body += `<div class="today-sub-note">⚠ У цій групі на цю пару є заміна: ${escapeHtml(subNote.subject||'')}</div>`;
+    body += `<div class="today-sub-note">⚠ У цій групі на цю пару є заміна: ${escapeHtml(parseSubSubject(subNote.subject).text)}</div>`;
   }
   const t = PAIR_TIMES[pair];
   const time = t ? `${t[0]}–${t[1]}` : '';
@@ -654,7 +666,7 @@ function renderWeekBody(mine, isStudent, active){
     sortedPairs(byPair).forEach(p => {
       const grp = byPair[p];
       if(grp.sub){
-        lines += `<div class="wk-row"><span class="wk-pair">${escapeHtml(p)}</span><span class="wk-text"><span class="wk-sub">ЗАМІНА</span> <span class="wk-subj">${escapeHtml(grp.sub.subject||'—')}</span>${grp.sub.room ? ` <span class="wk-meta">· ауд. ${escapeHtml(grp.sub.room)}</span>` : ''}</span></div>`;
+        lines += `<div class="wk-row"><span class="wk-pair">${escapeHtml(p)}</span><span class="wk-text"><span class="wk-sub">ЗАМІНА</span> <span class="wk-subj">${escapeHtml(parseSubSubject(grp.sub.subject).text || '—')}</span>${grp.sub.room ? ` <span class="wk-meta">· ауд. ${escapeHtml(grp.sub.room)}</span>` : ''}</span></div>`;
         return;
       }
       grp.items.forEach(it => {
